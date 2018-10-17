@@ -20,12 +20,12 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+HDC hdc;
 int left = 30, right = 80, top = 40, bottom = 90;
 const int move = 3;
-HDC hdc;
-bool autoMove = false, timer = false;
+bool autoMoveMode = false;
 char autoMoveSide = 'l';
-int autoMoveTimeout = 20;
+int autoMoveTimeout = 50, countTimers = 0;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -173,7 +173,6 @@ void AutoMoveRect(HWND hWnd, char &side)
 		width = window.right - window.left;
 		height = window.bottom - window.top;
 	}
-
 	if (newLeft<0 || newRight>width || newTop<0 || newBottom>height)
 	{
 		side = oppositeSide;
@@ -260,49 +259,49 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				case VK_LEFT:
 				{
-					autoMove = false;
+					autoMoveMode = false;
 					pressedSide = 'l';
 					break;
 				}
 				case VK_RIGHT:
 				{
-					autoMove = false;
+					autoMoveMode = false;
 					pressedSide = 'r';
 					break;
 				}
 				case VK_UP:
 				{
-					autoMove = false;
+					autoMoveMode = false;
 					pressedSide = 'u';
 					break;
 				}
 				case VK_DOWN:
 				{
-					autoMove = false;
+					autoMoveMode = false;
 					pressedSide = 'd';
 					break;
 				}
 				case VK_NUMPAD4:
 				{
-					autoMove = true;
+					autoMoveMode = true;
 					pressedSide = 'l';
 					break;
 				}
 				case VK_NUMPAD6:
 				{
-					autoMove = true;
+					autoMoveMode = true;
 					pressedSide = 'r';
 					break;
 				}
 				case VK_NUMPAD8:
 				{
-					autoMove = true;
+					autoMoveMode = true;
 					pressedSide = 'u';
 					break;
 				}
 				case VK_NUMPAD2:
 				{
-					autoMove = true;
+					autoMoveMode = true;
 					pressedSide = 'd';
 					break;
 				}
@@ -312,7 +311,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case WM_MOUSEWHEEL:
 		{
-			autoMove = false;
+			autoMoveMode = false;
 			if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
 			{
 				if (GetKeyState(VK_SHIFT) >= 0)
@@ -332,7 +331,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case WM_TIMER:
 		{
-			if (autoMove)
+			if (autoMoveMode)
 				AutoMoveRect(hWnd, autoMoveSide);
 			break;
 		}
@@ -341,19 +340,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 
-	if (autoMove)
+	if (autoMoveMode)
 	{
-		if (!timer)
+		if (countTimers == 0)
 		{
-			SetTimer(hWnd, 1, autoMoveTimeout, NULL);
-			timer = true;
+			SetTimer(hWnd, ++countTimers, autoMoveTimeout, NULL);
 		}
-		if (pressedSide == autoMoveSide)
+		if (pressedSide == autoMoveSide && countTimers <= 8)
 		{
-			if (autoMoveTimeout > 1)
-			{
-				autoMoveTimeout -= 1;
-			}
+			SetTimer(hWnd, ++countTimers, autoMoveTimeout, NULL);
 		}
 		else if (pressedSide != ' ')
 		{
@@ -362,17 +357,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	else
 	{
-		if (timer)
+		while (countTimers > 1)
 		{
-			KillTimer(hWnd, 1);
-			timer = false;
+			KillTimer(hWnd, countTimers--);
 		}
 		if (pressedSide != ' ')
 		{
 			AutoMoveRect(hWnd, pressedSide);
 		}
 	}
-
 	return 0;
 }
 
