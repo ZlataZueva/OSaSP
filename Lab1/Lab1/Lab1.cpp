@@ -8,6 +8,8 @@
 #include <Windowsx.h>
 
 #define MAX_LOADSTRING 100
+#define RECTANGLE 0
+#define PICTURE 1
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -24,7 +26,7 @@ HDC hdc;
 int left = 30, right = 80, top = 40, bottom = 90;
 const int move = 3;
 bool autoMoveMode = false;
-char autoMoveSide = 'l';
+char autoMoveSide = 'l', spriteMode = RECTANGLE;
 int autoMoveTimeout = 50, countTimers = 0;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -184,6 +186,15 @@ void AutoMoveRect(HWND hWnd, char &side)
 	}
 }
 
+char ShowChooseModeDialog(HWND hWnd)
+{
+	int choiseID = MessageBox(hWnd, L"Вы хотите видеть простой чёрный квадрат?\r\t Да - Чёрный квадрат\r\t Нет - Милая картинка", L"Выбор режима", MB_YESNO | MB_ICONQUESTION);
+	if (choiseID == IDNO)
+		return PICTURE;
+	else
+		return RECTANGLE;
+}
+
 //
 //  ФУНКЦИЯ: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -218,6 +229,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 
+		case WM_CREATE:
+		{
+			spriteMode = ShowChooseModeDialog(hWnd);
+			break;
+		}
+
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
@@ -234,8 +251,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		case WM_DESTROY:
+		{
+			while (countTimers > 0)
+			{
+				KillTimer(hWnd, countTimers--);
+			}
 			PostQuitMessage(0);
 			break;
+		}
 
 		case WM_LBUTTONUP:
 		{
