@@ -23,7 +23,9 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 int left = 30, right = 80, top = 40, bottom = 90;
 const int move = 3;
 HDC hdc;
-bool autoMove = false;
+bool autoMove = false, timer = false;
+char autoMoveSide = 'l';
+int autoMoveTimeout = 20;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -129,6 +131,60 @@ void MoveRect(HWND hWnd, int moveX, int moveY)
 	UpdateWindow(hWnd);
 }
 
+void AutoMoveRect(HWND hWnd, char &side)
+{
+	int newLeft=left, newRight=right, newTop=top, newBottom=bottom;
+	char oppositeSide = ' ';
+	switch (side)
+	{
+		case 'l':
+		{
+			newLeft -= move;
+			newRight = -move;
+			oppositeSide = 'r';
+			break;
+		}
+		case 'r':
+		{
+			newLeft += move;
+			newRight += move;
+			oppositeSide = 'l';
+			break;
+		}
+		case 'u':
+		{
+			newTop -= move;
+			newBottom -= move;
+			oppositeSide = 'd';
+			break;
+		}
+		case 'd':
+		{
+			newTop += move;
+			newBottom += move;
+			oppositeSide = 'u';
+			break;
+		}
+	}
+
+	RECT window; int width = 0, height = 0;
+	if (GetClientRect(hWnd, &window))
+	{
+		width = window.right - window.left;
+		height = window.bottom - window.top;
+	}
+
+	if (newLeft<0 || newRight>width || newTop<0 || newBottom>height)
+	{
+		side = oppositeSide;
+		AutoMoveRect(hWnd, side);
+	}
+	else
+	{
+		MoveRect(hWnd, newLeft - left, newTop - top);
+	}
+}
+
 //
 //  ФУНКЦИЯ: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -142,120 +198,177 @@ void MoveRect(HWND hWnd, int moveX, int moveY)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	SetFocus(hWnd);
+	char pressedSide = ' ';
 	switch (message)
 	{
-	case WM_COMMAND:
-	{
-		int wmId = LOWORD(wParam);
-		// Разобрать выбор в меню:
-		switch (wmId)
+		case WM_COMMAND:
 		{
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+			int wmId = LOWORD(wParam);
+			// Разобрать выбор в меню:
+			switch (wmId)
+			{
+			case IDM_ABOUT:
+				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+				break;
+			case IDM_EXIT:
+				DestroyWindow(hWnd);
+				break;
+			default:
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
 			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
+		}
+
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			HDC hdc = BeginPaint(hWnd, &ps);
+			/*SelectObject(hdc, GetStockObject(DC_PEN));
+			SelectObject(hdc, GetStockObject(DC_BRUSH));
+			SetDCBrushColor(hdc, RGB(255, 0, 0));
+			SetDCPenColor(hdc, RGB(0, 0, 255));*/
+			SelectObject(hdc, GetStockObject(BLACK_PEN));
+			SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+			Rectangle(hdc, left, top, right, bottom);
+			EndPaint(hWnd, &ps);
 			break;
+		}
+
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
+
+		case WM_LBUTTONUP:
+		{
+			HDC hdc = GetDC(hWnd);
+			WORD xPos, yPos;
+			xPos = LOWORD(lParam);
+			yPos = HIWORD(lParam);
+			left = xPos - 25;
+			right = xPos + 25;
+			top = yPos + 25;
+			bottom = yPos - 25;
+			InvalidateRect(hWnd, NULL, TRUE);
+			UpdateWindow(hWnd);
+			ReleaseDC(hWnd, hdc);
+			break;
+		}
+
+		case WM_KEYDOWN:
+		{
+			switch (wParam)
+			{
+				case VK_LEFT:
+				{
+					autoMove = false;
+					MoveRect(hWnd, -move, 0);
+					break;
+				}
+				case VK_RIGHT:
+				{
+					autoMove = false;
+					MoveRect(hWnd, move, 0);
+					break;
+				}
+				case VK_UP:
+				{
+					autoMove = false;
+					MoveRect(hWnd, 0, -move);
+					break;
+				}
+				case VK_DOWN:
+				{
+					autoMove = false;
+					MoveRect(hWnd, 0, move);
+					break;
+				}
+				case VK_NUMPAD4:
+				{
+					autoMove = true;
+					pressedSide = 'l';
+					break;
+				}
+				case VK_NUMPAD6:
+				{
+					autoMove = true;
+					pressedSide = 'r';
+					break;
+				}
+				case VK_NUMPAD8:
+				{
+					autoMove = true;
+					pressedSide = 'u';
+					break;
+				}
+				case VK_NUMPAD2:
+				{
+					autoMove = true;
+					pressedSide = 'd';
+					break;
+				}
+			}
+			break;
+		}
+
+		case WM_MOUSEWHEEL:
+		{
+			autoMove = false;
+			if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+			{
+				if (GetKeyState(VK_SHIFT) >= 0)
+					MoveRect(hWnd, 0, -move);
+				else
+					MoveRect(hWnd, -move, 0);
+			}
+			else
+			{
+				if (GetKeyState(VK_SHIFT) >= 0)
+					MoveRect(hWnd, 0, move);
+				else
+					MoveRect(hWnd, move, 0);
+			}
+			break;
+		}
+
+		case WM_TIMER:
+		{
+			if (autoMove)
+				AutoMoveRect(hWnd, autoMoveSide);
+			break;
+		}
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		break;
 	}
 
-	case WM_PAINT:
+	if (autoMove)
 	{
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hWnd, &ps);
-		/*SelectObject(hdc, GetStockObject(DC_PEN));
-		SelectObject(hdc, GetStockObject(DC_BRUSH));
-		SetDCBrushColor(hdc, RGB(255, 0, 0));
-		SetDCPenColor(hdc, RGB(0, 0, 255));*/
-		SelectObject(hdc, GetStockObject(BLACK_PEN));
-		SelectObject(hdc, GetStockObject(BLACK_BRUSH));
-		Rectangle(hdc, left, top, right, bottom);
-		EndPaint(hWnd, &ps);
+		if (!timer)
+		{
+			SetTimer(hWnd, 1, autoMoveTimeout, NULL);
+			timer = true;
+		}
+		if (pressedSide == autoMoveSide)
+		{
+			if (autoMoveTimeout > 1)
+			{
+				autoMoveTimeout -= 1;
+			}
+		}
+		else if (pressedSide != ' ')
+		{
+			autoMoveSide = pressedSide;
+		}
 	}
-	break;
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-
-	case WM_LBUTTONUP:
+	else
 	{
-		HDC hdc = GetDC(hWnd);
-		WORD xPos, yPos;
-		xPos = LOWORD(lParam);
-		yPos = HIWORD(lParam);
-		left = xPos - 25;
-		right = xPos + 25;
-		top = yPos + 25;
-		bottom = yPos - 25;
-		InvalidateRect(hWnd, NULL, TRUE);
-		UpdateWindow(hWnd);
-		ReleaseDC(hWnd, hdc);
-	}
-	break;
-
-	case WM_KEYDOWN:
-	{
-
-		switch (wParam)
+		if (timer)
 		{
-		case VK_LEFT:
-		{
-			MoveRect(hWnd, -move, 0);
-			break;
-		}
-		case VK_RIGHT:
-		{
-			MoveRect(hWnd, move, 0);
-			break;
-		}
-		case VK_UP:
-		{
-			MoveRect(hWnd, 0, -move);
-			break;
-		}
-		case VK_DOWN:
-		{
-			MoveRect(hWnd, 0, move);
-			break;
-		}
-		case VK_NUMPAD4:
-
+			KillTimer(hWnd, 1);
+			timer = false;
 		}
 	}
-	break;
 
-	case WM_MOUSEWHEEL:
-	{
-		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-		{
-			if (GetKeyState(VK_SHIFT) >= 0)
-				MoveRect(hWnd, 0, -move);
-			else
-				MoveRect(hWnd, -move, 0);
-		}
-		else
-		{
-			if (GetKeyState(VK_SHIFT) >= 0)
-				MoveRect(hWnd, 0, move);
-			else
-				MoveRect(hWnd, move, 0);
-		}
-		break;
-	}
-
-	case WM_MOUSEMOVE:
-	{
-		SetFocus(hWnd);
-		break;
-	}
-
-
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
 	return 0;
 }
 
