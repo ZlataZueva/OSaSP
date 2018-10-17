@@ -261,25 +261,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case VK_LEFT:
 				{
 					autoMove = false;
-					MoveRect(hWnd, -move, 0);
+					pressedSide = 'l';
 					break;
 				}
 				case VK_RIGHT:
 				{
 					autoMove = false;
-					MoveRect(hWnd, move, 0);
+					pressedSide = 'r';
 					break;
 				}
 				case VK_UP:
 				{
 					autoMove = false;
-					MoveRect(hWnd, 0, -move);
+					pressedSide = 'u';
 					break;
 				}
 				case VK_DOWN:
 				{
 					autoMove = false;
-					MoveRect(hWnd, 0, move);
+					pressedSide = 'd';
 					break;
 				}
 				case VK_NUMPAD4:
@@ -366,6 +366,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			KillTimer(hWnd, 1);
 			timer = false;
+		}
+		if (pressedSide != ' ')
+		{
+			AutoMoveRect(hWnd, pressedSide);
 		}
 	}
 
