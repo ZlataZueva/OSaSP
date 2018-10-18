@@ -163,6 +163,9 @@
     <ResourceCompile Include="Lab1.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\..\..\Documents\5 сем\ОСиСП\OSandSP-labworks-master\OSandSP-labwork1\fallen-leaf.bmp" />
+    <Image Include="..\..\..\..\..\Pictures\Clouds.bmp" />
+    <Image Include="bitmap1.bmp" />
     <Image Include="Lab1.ico" />
     <Image Include="small.ico" />
   </ItemGroup>

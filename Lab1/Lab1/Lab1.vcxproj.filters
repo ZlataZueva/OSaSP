@@ -51,5 +51,14 @@
     <Image Include="Lab1.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
+    <Image Include="..\..\..\..\..\Pictures\Clouds.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="..\..\..\..\..\Documents\5 сем\ОСиСП\OSandSP-labworks-master\OSandSP-labwork1\fallen-leaf.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="bitmap1.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
   </ItemGroup>
 </Project>

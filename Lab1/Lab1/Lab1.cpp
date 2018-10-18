@@ -22,12 +22,15 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
-HDC hdc;
+HDC hdc, memDC;
 int left = 30, right = 80, top = 40, bottom = 90;
 const int move = 3;
 bool autoMoveMode = false;
 char autoMoveSide = 'l', spriteMode = RECTANGLE;
 int autoMoveTimeout = 50, countTimers = 0;
+HBITMAP pictureBitmap;
+BITMAP bitmap;
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -123,7 +126,28 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-void MoveRect(HWND hWnd, int moveX, int moveY)
+void DrawSprite(HDC hdc, int left, int top, int right, int bottom, int mode = RECTANGLE)
+{
+	switch (mode)
+	{
+		case RECTANGLE:
+		{
+			SelectObject(hdc, GetStockObject(BLACK_PEN));
+			SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+			Rectangle(hdc, left, top, right, bottom);
+			break;
+		}
+		case PICTURE:
+		{
+			right = left + bitmap.bmWidth;
+			bottom = top + bitmap.bmHeight;
+			BitBlt(hdc, left, top, right-left, bottom-top, memDC, 0, 0, SRCCOPY);
+			break;
+		}
+	}
+}
+
+void MoveSprite(HWND hWnd, int moveX, int moveY)
 {
 	left += moveX;
 	right += moveX;
@@ -133,7 +157,7 @@ void MoveRect(HWND hWnd, int moveX, int moveY)
 	UpdateWindow(hWnd);
 }
 
-void AutoMoveRect(HWND hWnd, char &side)
+void AutoMoveSprite(HWND hWnd, char &side)
 {
 	int newLeft=left, newRight=right, newTop=top, newBottom=bottom;
 	char oppositeSide = ' ';
@@ -178,11 +202,11 @@ void AutoMoveRect(HWND hWnd, char &side)
 	if (newLeft<0 || newRight>width || newTop<0 || newBottom>height)
 	{
 		side = oppositeSide;
-		AutoMoveRect(hWnd, side);
+		AutoMoveSprite(hWnd, side);
 	}
 	else
 	{
-		MoveRect(hWnd, newLeft - left, newTop - top);
+		MoveSprite(hWnd, newLeft - left, newTop - top);
 	}
 }
 
@@ -217,14 +241,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			// Разобрать выбор в меню:
 			switch (wmId)
 			{
-			case IDM_ABOUT:
-				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-				break;
-			case IDM_EXIT:
-				DestroyWindow(hWnd);
-				break;
-			default:
-				return DefWindowProc(hWnd, message, wParam, lParam);
+				case IDM_ABOUT:
+					MessageBox(hWnd,
+						L"Предмет: Операционные Системы и Системное Программирование\rТема: Изучение событийной архитекторы Windows-приложений, механизма обработки сообщений, механизма перерисовки окна\rВыполнил: Зуева З.А., гр.651001\rПроверил: Базылев Е.Н.",
+						L"О программе",
+						MB_OK | MB_ICONINFORMATION);
+					break;
+				case IDM_EXIT:
+					DestroyWindow(hWnd);
+					break;
+				default:
+					return DefWindowProc(hWnd, message, wParam, lParam);
 			}
 			break;
 		}
@@ -232,6 +259,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_CREATE:
 		{
 			spriteMode = ShowChooseModeDialog(hWnd);
+			if (spriteMode == PICTURE)
+			{
+				pictureBitmap = (HBITMAP) LoadResource(NULL,FindResource(NULL,MAKEINTRESOURCE(IDB_BITMAP1), RT_BITMAP));
+				GetObject(pictureBitmap, sizeof(bitmap), &bitmap); // Извлечение информации б объекте
+				hdc = GetDC(hWnd); // Извлечение дескриптора дисплейного контекста устройства
+				memDC = CreateCompatibleDC(hdc); // Создание виртуального контекста устройства, совместимого с заданным контекстом
+				SelectObject(memDC, pictureBitmap); // Выбор объекта hBitmap в контекст устройства memBit
+				ReleaseDC(hWnd, hdc); // Освобождение контекста устройства
+			}
 			break;
 		}
 
@@ -243,9 +279,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SelectObject(hdc, GetStockObject(DC_BRUSH));
 			SetDCBrushColor(hdc, RGB(255, 0, 0));
 			SetDCPenColor(hdc, RGB(0, 0, 255));*/
-			SelectObject(hdc, GetStockObject(BLACK_PEN));
-			SelectObject(hdc, GetStockObject(BLACK_BRUSH));
-			Rectangle(hdc, left, top, right, bottom);
+			DrawSprite(hdc, left, top, right, bottom,spriteMode);
 			EndPaint(hWnd, &ps);
 			break;
 		}
@@ -338,16 +372,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
 			{
 				if (GetKeyState(VK_SHIFT) >= 0)
-					MoveRect(hWnd, 0, -move);
+					MoveSprite(hWnd, 0, -move);
 				else
-					MoveRect(hWnd, -move, 0);
+					MoveSprite(hWnd, -move, 0);
 			}
 			else
 			{
 				if (GetKeyState(VK_SHIFT) >= 0)
-					MoveRect(hWnd, 0, move);
+					MoveSprite(hWnd, 0, move);
 				else
-					MoveRect(hWnd, move, 0);
+					MoveSprite(hWnd, move, 0);
 			}
 			break;
 		}
@@ -355,7 +389,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_TIMER:
 		{
 			if (autoMoveMode)
-				AutoMoveRect(hWnd, autoMoveSide);
+				AutoMoveSprite(hWnd, autoMoveSide);
 			break;
 		}
 
@@ -386,28 +420,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		if (pressedSide != ' ')
 		{
-			AutoMoveRect(hWnd, pressedSide);
+			AutoMoveSprite(hWnd, pressedSide);
 		}
 	}
 	return 0;
-}
-
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(lParam);
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
-	}
-	return (INT_PTR)FALSE;
 }
