@@ -27,7 +27,7 @@
     <ClInclude Include="Resource.h">
       <Filter>Заголовочные файлы</Filter>
     </ClInclude>
-    <ClInclude Include="Lab1.h">
+    <ClInclude Include="Lab2.h">
       <Filter>Заголовочные файлы</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,12 +35,12 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
-    <ClCompile Include="Lab1.cpp">
+    <ClCompile Include="Lab2.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Lab1.rc">
+    <ResourceCompile Include="Lab2.rc">
       <Filter>Файлы ресурсов</Filter>
     </ResourceCompile>
   </ItemGroup>
@@ -48,16 +48,7 @@
     <Image Include="small.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
-    <Image Include="Lab1.ico">
-      <Filter>Файлы ресурсов</Filter>
-    </Image>
-    <Image Include="..\..\..\..\..\Pictures\Clouds.bmp">
-      <Filter>Файлы ресурсов</Filter>
-    </Image>
-    <Image Include="..\..\..\..\..\Documents\5 сем\ОСиСП\OSandSP-labworks-master\OSandSP-labwork1\fallen-leaf.bmp">
-      <Filter>Файлы ресурсов</Filter>
-    </Image>
-    <Image Include="bitmap1.bmp">
+    <Image Include="Lab2.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>

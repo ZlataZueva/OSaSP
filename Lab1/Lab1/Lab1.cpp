@@ -8,6 +8,8 @@
 #include <Windowsx.h>
 
 #define MAX_LOADSTRING 100
+#define RECTANGLE 0
+#define PICTURE 1
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -20,10 +22,15 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+HDC hdc, memDC;
 int left = 30, right = 80, top = 40, bottom = 90;
 const int move = 3;
-HDC hdc;
-bool autoMove = false;
+bool autoMoveMode = false;
+char autoMoveSide = 'l', spriteMode = RECTANGLE;
+int autoMoveTimeout = 50, countTimers = 0;
+HBITMAP pictureBitmap;
+BITMAP bitmap;
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -119,7 +126,28 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-void MoveRect(HWND hWnd, int moveX, int moveY)
+void DrawSprite(HDC hdc, int left, int top, int right, int bottom, int mode = RECTANGLE)
+{
+	switch (mode)
+	{
+		case RECTANGLE:
+		{
+			SelectObject(hdc, GetStockObject(BLACK_PEN));
+			SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+			Rectangle(hdc, left, top, right, bottom);
+			break;
+		}
+		case PICTURE:
+		{
+			right = left + bitmap.bmWidth;
+			bottom = top + bitmap.bmHeight;
+			BitBlt(hdc, left, top, right-left, bottom-top, memDC, 0, 0, SRCCOPY);
+			break;
+		}
+	}
+}
+
+void MoveSprite(HWND hWnd, int moveX, int moveY)
 {
 	left += moveX;
 	right += moveX;
@@ -127,6 +155,68 @@ void MoveRect(HWND hWnd, int moveX, int moveY)
 	bottom += moveY;
 	InvalidateRect(hWnd, NULL, TRUE);
 	UpdateWindow(hWnd);
+}
+
+void AutoMoveSprite(HWND hWnd, char &side)
+{
+	int newLeft=left, newRight=right, newTop=top, newBottom=bottom;
+	char oppositeSide = ' ';
+	switch (side)
+	{
+		case 'l':
+		{
+			newLeft -= move;
+			newRight = -move;
+			oppositeSide = 'r';
+			break;
+		}
+		case 'r':
+		{
+			newLeft += move;
+			newRight += move;
+			oppositeSide = 'l';
+			break;
+		}
+		case 'u':
+		{
+			newTop -= move;
+			newBottom -= move;
+			oppositeSide = 'd';
+			break;
+		}
+		case 'd':
+		{
+			newTop += move;
+			newBottom += move;
+			oppositeSide = 'u';
+			break;
+		}
+	}
+
+	RECT window; int width = 0, height = 0;
+	if (GetClientRect(hWnd, &window))
+	{
+		width = window.right - window.left;
+		height = window.bottom - window.top;
+	}
+	if (newLeft<0 || newRight>width || newTop<0 || newBottom>height)
+	{
+		side = oppositeSide;
+		AutoMoveSprite(hWnd, side);
+	}
+	else
+	{
+		MoveSprite(hWnd, newLeft - left, newTop - top);
+	}
+}
+
+char ShowChooseModeDialog(HWND hWnd)
+{
+	int choiseID = MessageBox(hWnd, L"Вы хотите видеть простой чёрный квадрат?\r\t Да - Чёрный квадрат\r\t Нет - Милая картинка", L"Выбор режима", MB_YESNO | MB_ICONQUESTION);
+	if (choiseID == IDNO)
+		return PICTURE;
+	else
+		return RECTANGLE;
 }
 
 //
@@ -142,139 +232,196 @@ void MoveRect(HWND hWnd, int moveX, int moveY)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	SetFocus(hWnd);
+	char pressedSide = ' ';
 	switch (message)
 	{
-	case WM_COMMAND:
-	{
-		int wmId = LOWORD(wParam);
-		// Разобрать выбор в меню:
-		switch (wmId)
+		case WM_COMMAND:
 		{
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+			int wmId = LOWORD(wParam);
+			// Разобрать выбор в меню:
+			switch (wmId)
+			{
+				case IDM_ABOUT:
+					MessageBox(hWnd,
+						L"Предмет: Операционные Системы и Системное Программирование\rТема: Изучение событийной архитекторы Windows-приложений, механизма обработки сообщений, механизма перерисовки окна\rВыполнил: Зуева З.А., гр.651001\rПроверил: Базылев Е.Н.",
+						L"О программе",
+						MB_OK | MB_ICONINFORMATION);
+					break;
+				case IDM_EXIT:
+					DestroyWindow(hWnd);
+					break;
+				default:
+					return DefWindowProc(hWnd, message, wParam, lParam);
+			}
 			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
+		}
+
+		case WM_CREATE:
+		{
+			spriteMode = ShowChooseModeDialog(hWnd);
+			if (spriteMode == PICTURE)
+			{
+				pictureBitmap = (HBITMAP) LoadResource(NULL,FindResource(NULL,MAKEINTRESOURCE(IDB_BITMAP1), RT_BITMAP));
+				GetObject(pictureBitmap, sizeof(bitmap), &bitmap); // Извлечение информации б объекте
+				hdc = GetDC(hWnd); // Извлечение дескриптора дисплейного контекста устройства
+				memDC = CreateCompatibleDC(hdc); // Создание виртуального контекста устройства, совместимого с заданным контекстом
+				SelectObject(memDC, pictureBitmap); // Выбор объекта hBitmap в контекст устройства memBit
+				ReleaseDC(hWnd, hdc); // Освобождение контекста устройства
+			}
 			break;
+		}
+
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			HDC hdc = BeginPaint(hWnd, &ps);
+			/*SelectObject(hdc, GetStockObject(DC_PEN));
+			SelectObject(hdc, GetStockObject(DC_BRUSH));
+			SetDCBrushColor(hdc, RGB(255, 0, 0));
+			SetDCPenColor(hdc, RGB(0, 0, 255));*/
+			DrawSprite(hdc, left, top, right, bottom,spriteMode);
+			EndPaint(hWnd, &ps);
+			break;
+		}
+
+		case WM_DESTROY:
+		{
+			while (countTimers > 0)
+			{
+				KillTimer(hWnd, countTimers--);
+			}
+			PostQuitMessage(0);
+			break;
+		}
+
+		case WM_LBUTTONUP:
+		{
+			HDC hdc = GetDC(hWnd);
+			WORD xPos, yPos;
+			xPos = LOWORD(lParam);
+			yPos = HIWORD(lParam);
+			left = xPos - 25;
+			right = xPos + 25;
+			top = yPos + 25;
+			bottom = yPos - 25;
+			InvalidateRect(hWnd, NULL, TRUE);
+			UpdateWindow(hWnd);
+			ReleaseDC(hWnd, hdc);
+			break;
+		}
+
+		case WM_KEYDOWN:
+		{
+			switch (wParam)
+			{
+				case VK_LEFT:
+				{
+					autoMoveMode = false;
+					pressedSide = 'l';
+					break;
+				}
+				case VK_RIGHT:
+				{
+					autoMoveMode = false;
+					pressedSide = 'r';
+					break;
+				}
+				case VK_UP:
+				{
+					autoMoveMode = false;
+					pressedSide = 'u';
+					break;
+				}
+				case VK_DOWN:
+				{
+					autoMoveMode = false;
+					pressedSide = 'd';
+					break;
+				}
+				case VK_NUMPAD4:
+				{
+					autoMoveMode = true;
+					pressedSide = 'l';
+					break;
+				}
+				case VK_NUMPAD6:
+				{
+					autoMoveMode = true;
+					pressedSide = 'r';
+					break;
+				}
+				case VK_NUMPAD8:
+				{
+					autoMoveMode = true;
+					pressedSide = 'u';
+					break;
+				}
+				case VK_NUMPAD2:
+				{
+					autoMoveMode = true;
+					pressedSide = 'd';
+					break;
+				}
+			}
+			break;
+		}
+
+		case WM_MOUSEWHEEL:
+		{
+			autoMoveMode = false;
+			if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+			{
+				if (GetKeyState(VK_SHIFT) >= 0)
+					MoveSprite(hWnd, 0, -move);
+				else
+					MoveSprite(hWnd, -move, 0);
+			}
+			else
+			{
+				if (GetKeyState(VK_SHIFT) >= 0)
+					MoveSprite(hWnd, 0, move);
+				else
+					MoveSprite(hWnd, move, 0);
+			}
+			break;
+		}
+
+		case WM_TIMER:
+		{
+			if (autoMoveMode)
+				AutoMoveSprite(hWnd, autoMoveSide);
+			break;
+		}
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		break;
 	}
 
-	case WM_PAINT:
+	if (autoMoveMode)
 	{
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hWnd, &ps);
-		/*SelectObject(hdc, GetStockObject(DC_PEN));
-		SelectObject(hdc, GetStockObject(DC_BRUSH));
-		SetDCBrushColor(hdc, RGB(255, 0, 0));
-		SetDCPenColor(hdc, RGB(0, 0, 255));*/
-		SelectObject(hdc, GetStockObject(BLACK_PEN));
-		SelectObject(hdc, GetStockObject(BLACK_BRUSH));
-		Rectangle(hdc, left, top, right, bottom);
-		EndPaint(hWnd, &ps);
+		if (countTimers == 0)
+		{
+			SetTimer(hWnd, ++countTimers, autoMoveTimeout, NULL);
+		}
+		if (pressedSide == autoMoveSide && countTimers <= 8)
+		{
+			SetTimer(hWnd, ++countTimers, autoMoveTimeout, NULL);
+		}
+		else if (pressedSide != ' ')
+		{
+			autoMoveSide = pressedSide;
+		}
 	}
-	break;
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-
-	case WM_LBUTTONUP:
+	else
 	{
-		HDC hdc = GetDC(hWnd);
-		WORD xPos, yPos;
-		xPos = LOWORD(lParam);
-		yPos = HIWORD(lParam);
-		left = xPos - 25;
-		right = xPos + 25;
-		top = yPos + 25;
-		bottom = yPos - 25;
-		InvalidateRect(hWnd, NULL, TRUE);
-		UpdateWindow(hWnd);
-		ReleaseDC(hWnd, hdc);
-	}
-	break;
-
-	case WM_KEYDOWN:
-	{
-
-		switch (wParam)
+		while (countTimers > 1)
 		{
-		case VK_LEFT:
+			KillTimer(hWnd, countTimers--);
+		}
+		if (pressedSide != ' ')
 		{
-			MoveRect(hWnd, -move, 0);
-			break;
+			AutoMoveSprite(hWnd, pressedSide);
 		}
-		case VK_RIGHT:
-		{
-			MoveRect(hWnd, move, 0);
-			break;
-		}
-		case VK_UP:
-		{
-			MoveRect(hWnd, 0, -move);
-			break;
-		}
-		case VK_DOWN:
-		{
-			MoveRect(hWnd, 0, move);
-			break;
-		}
-		case VK_NUMPAD4:
-
-		}
-	}
-	break;
-
-	case WM_MOUSEWHEEL:
-	{
-		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-		{
-			if (GetKeyState(VK_SHIFT) >= 0)
-				MoveRect(hWnd, 0, -move);
-			else
-				MoveRect(hWnd, -move, 0);
-		}
-		else
-		{
-			if (GetKeyState(VK_SHIFT) >= 0)
-				MoveRect(hWnd, 0, move);
-			else
-				MoveRect(hWnd, move, 0);
-		}
-		break;
-	}
-
-	case WM_MOUSEMOVE:
-	{
-		SetFocus(hWnd);
-		break;
-	}
-
-
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
-}
-
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(lParam);
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
-	}
-	return (INT_PTR)FALSE;
 }
