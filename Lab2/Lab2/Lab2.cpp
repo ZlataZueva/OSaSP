@@ -25,7 +25,7 @@ HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 
-// Отправить объявления функций, включенных в этот модуль кода:
+												// Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -83,9 +83,9 @@ char* ChooseFile(HWND hWnd)
 
 BOOL ReadTableTextfromFile(char* path)
 {
-	for (int i =0; i< MAX_TABLE_COLUMNS_NUM; i++)
-		for (int j= 0; j< MAX_TABLE_COLUMNS_NUM; j++)
-			tableText[i][j] = (char *) malloc (sizeof(char)*MAX_CELLTEXT_LENGTH);
+	for (int i = 0; i< MAX_TABLE_COLUMNS_NUM; i++)
+		for (int j = 0; j< MAX_TABLE_COLUMNS_NUM; j++)
+			tableText[i][j] = (char *)malloc(sizeof(char)*MAX_CELLTEXT_LENGTH);
 
 	std::ifstream fin(path);
 	if (!fin.is_open())
@@ -128,6 +128,7 @@ int FindTextHeight(char* text)
 	GetTextExtentPoint32A(hdc, text, strlen(text), &size);
 	return size.cy;
 	//return 40;
+	//return tm.tmHeight;
 }
 
 int FindTextWidth(char* text)
@@ -136,11 +137,17 @@ int FindTextWidth(char* text)
 	GetTextExtentPoint32A(hdc, text, strlen(text), &size);
 	return size.cx;
 	//return 100;
+	//return tm.tmAveCharWidth*strlen(text);
 }
 
-void FindTableParamms()
+bool FindTableParamms(RECT &newWinRec)
 {
-	
+	bool resized = true;
+	if (newWinRec.bottom > 0)
+	{
+		windowHeight = newWinRec.bottom - newWinRec.top;
+		windowWidth = newWinRec.right - newWinRec.left;
+	}
 	int rowsMaxHeights[MAX_TABLE_ROWS_NUM], columnsMaxWidths[MAX_TABLE_COLUMNS_NUM];
 	for (int j = 0; j < tableColumnsNum; j++)
 	{
@@ -168,7 +175,7 @@ void FindTableParamms()
 		}
 	}
 
-	int averageWidth = (windowWidth-10) / tableColumnsNum;
+	int averageWidth = (windowWidth - 10) / tableColumnsNum;
 	int averageHeight = windowHeight / tableRowsNum;
 
 	if (averageWidth < maxWidth)
@@ -178,16 +185,16 @@ void FindTableParamms()
 			sumMaxWidth += columnsMaxWidths[i];
 		if (sumMaxWidth > windowWidth)
 		{
-			evenlyWidth = true;
-			cellWidth = averageWidth;
+			/*evenlyWidth = true;
+			cellWidth = averageWidth;*/
 			bool newWidthsFound = true;
 			std::vector<int> newRowHeights(tableRowsNum);
 			for (int i = 0; i < tableRowsNum; i++)
 			{
 				std::vector<int> newCellHeights(tableColumnsNum);
 				std::vector<int> newCellWidths(tableColumnsNum);
-				for (int j=  0; j < tableColumnsNum; j++)
-				{ 
+				for (int j = 0; j < tableColumnsNum; j++)
+				{
 					if (strcmp(tableText[i][j], ""))
 					{
 						RECT cell;
@@ -197,7 +204,7 @@ void FindTableParamms()
 						newCellWidths[j] = cell.right - cell.left;
 						/*if ((cell.right-cell.left) > averageWidth)
 						{
-							newWidthsFound = false;
+						newWidthsFound = false;
 						}*/
 					}
 				}
@@ -230,9 +237,15 @@ void FindTableParamms()
 				int newSumMaxWidth = 0;
 				for (int i = 0; i < tableColumnsNum; i++)
 					newSumMaxWidth += columnsMaxWidths[i];
+				if (newSumMaxWidth > windowWidth)
+				{
+					newWinRec.right = newWinRec.left + newSumMaxWidth + 10;
+					resized = false;
+				}
 				columnsWidths = (int *)malloc(sizeof(int)*tableColumnsNum);
 				for (int i = 0; i < tableColumnsNum; i++)
 					columnsWidths[i] = columnsMaxWidths[i] + (windowWidth - 10 - newSumMaxWidth) / tableColumnsNum;
+
 			}
 		}
 		else
@@ -240,7 +253,7 @@ void FindTableParamms()
 			evenlyWidth = false;
 			columnsWidths = (int *)malloc(sizeof(int)*tableColumnsNum);
 			for (int i = 0; i < tableColumnsNum; i++)
-				columnsWidths[i] = columnsMaxWidths[i] + (windowWidth- 10 - sumMaxWidth) / tableColumnsNum;
+				columnsWidths[i] = columnsMaxWidths[i] + (windowWidth - 10 - sumMaxWidth) / tableColumnsNum;
 		}
 	}
 	else
@@ -251,32 +264,30 @@ void FindTableParamms()
 
 	if (averageHeight < maxHeight)
 	{
-		//int sumMaxHeight = 0;
-		//for (int i = 0; i < tableRowsNum; i++)
-		//	sumMaxHeight += rowsMaxHeights[i];
-		//if (sumMaxHeight > windowHeight)
-		//{
+		int sumMaxHeight = 0;
+		for (int i = 0; i < tableRowsNum; i++)
+			sumMaxHeight += rowsMaxHeights[i];
+		if ((sumMaxHeight + 60) > windowHeight)
+		{
+			newWinRec.bottom = newWinRec.top + sumMaxHeight + 60;
+		}
 		evenlyHeight = false;
-		rowsHeights = (int*) malloc(sizeof(int)*tableRowsNum);
+		rowsHeights = (int*)malloc(sizeof(int)*tableRowsNum);
 		for (int i = 0; i < tableRowsNum; i++)
 			rowsHeights[i] = rowsMaxHeights[i];
-		//}
 	}
 	else
 	{
 		evenlyHeight = true;
-		if (averageHeight > maxHeight * 2)
-			cellHeight = maxHeight;
-		else
-			cellHeight = averageHeight;
+		cellHeight = maxHeight;
 	}
+	return resized;
 }
 
 void PrintTable()
 {
 	if (tableText[0][0] == NULL)
 		return;
-	FindTableParamms();
 	int tableWidth = 0;
 	if (evenlyWidth)
 		tableWidth = cellWidth*tableColumnsNum;
@@ -299,13 +310,10 @@ void PrintTable()
 	{
 		windowHeight = tableHeight;
 		offsetsTB = 0;
-		//offsetsTB = 10;
-		//Scroll();
 	}
 	else
 	{
 		offsetsTB = (windowHeight - tableHeight) / 2;
-		//noScroll();
 	}
 
 	int rowTop = offsetsTB, upperRowHeight = 0, leftColWidth = 0, height = 0, width = 0;
@@ -327,12 +335,8 @@ void PrintTable()
 
 			RECT cell;
 			SetRect(&cell, colLeft, rowTop, colLeft + width, rowTop + height);
-			//int r = DrawTextA(hdc, tableText[i][j], strlen(tableText[i][j]), &cell, DT_LEFT | DT_VCENTER | DT_CALCRECT | DT_SINGLELINE);
-			//TextOut(hdc, borderWidth + cellWidth * j + 3, borderHeight + cellHeight * i + 1, str, _tcsclen(str));
-			//SetTextColor(hdc, RGB(85, 138, 134));
-			DrawTextA(hdc, tableText[i][j], -1, &cell, DT_WORDBREAK|DT_VCENTER|DT_CENTER);
+			DrawTextA(hdc, tableText[i][j], -1, &cell, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
 			FrameRect(hdc, &cell, tableBrush);
-			//DrawTextA(hdc, tableText[i][j], -1, &cell, DT_CALCRECT | DT_WORDBREAK);
 			leftColWidth = width;
 		}
 		leftColWidth = 0;
@@ -348,41 +352,41 @@ void AddMenu(HWND hWnd)
 }
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR    lpCmdLine,
+	_In_ int       nCmdShow)
 {
-    UNREFERENCED_PARAMETER(hPrevInstance);
-    UNREFERENCED_PARAMETER(lpCmdLine);
+	UNREFERENCED_PARAMETER(hPrevInstance);
+	UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: разместите код здесь.
+	// TODO: разместите код здесь.
 
-    // Инициализация глобальных строк
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_LAB2, szWindowClass, MAX_LOADSTRING);
-    MyRegisterClass(hInstance);
+	// Инициализация глобальных строк
+	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_LAB2, szWindowClass, MAX_LOADSTRING);
+	MyRegisterClass(hInstance);
 
-    // Выполнить инициализацию приложения:
-    if (!InitInstance (hInstance, nCmdShow))
-    {
-        return FALSE;
-    }
+	// Выполнить инициализацию приложения:
+	if (!InitInstance(hInstance, nCmdShow))
+	{
+		return FALSE;
+	}
 
-    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB2));
+	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB2));
 
-    MSG msg;
+	MSG msg;
 
-    // Цикл основного сообщения:
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-    }
+	// Цикл основного сообщения:
+	while (GetMessage(&msg, nullptr, 0, 0))
+	{
+		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
 
-    return (int) msg.wParam;
+	return (int)msg.wParam;
 }
 
 
@@ -394,23 +398,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEXW wcex;
+	WNDCLASSEXW wcex;
 
-    wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB2));
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_LAB2);
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc = WndProc;
+	wcex.cbClsExtra = 0;
+	wcex.cbWndExtra = 0;
+	wcex.hInstance = hInstance;
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB2));
+	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB2);
+	wcex.lpszClassName = szWindowClass;
+	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
-    return RegisterClassExW(&wcex);
+	return RegisterClassExW(&wcex);
 }
 
 //
@@ -425,20 +429,20 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // Сохранить дескриптор экземпляра в глобальной переменной
+	hInst = hInstance; // Сохранить дескриптор экземпляра в глобальной переменной
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
-   if (!hWnd)
-   {
-      return FALSE;
-   }
+	if (!hWnd)
+	{
+		return FALSE;
+	}
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+	ShowWindow(hWnd, nCmdShow);
+	UpdateWindow(hWnd);
 
-   return TRUE;
+	return TRUE;
 }
 
 //
@@ -453,8 +457,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    switch (message)
-    {
+	switch (message)
+	{
 	case WM_CREATE:
 	{
 		AddMenu(hWnd);
@@ -462,79 +466,87 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		tableBrush = CreateSolidBrush(RGB(191, 186, 190));
 	}
 	break;
-    case WM_COMMAND:
-        {
-            int wmId = LOWORD(wParam);
-            // Разобрать выбор в меню:
-            switch (wmId)
-            {
-			case IDM_OPEN:
-			{
-				char* filename = ChooseFile(hWnd);
-				ReadTableTextfromFile(filename);
-				InvalidateRect(hWnd, NULL, TRUE);
-				UpdateWindow(hWnd);
-			}
-			break;
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_PAINT:
-        {
-            hdc = BeginPaint(hWnd, &ps);
+	case WM_COMMAND:
+	{
+		int wmId = LOWORD(wParam);
+		// Разобрать выбор в меню:
+		switch (wmId)
+		{
+		case IDM_OPEN:
+		{
+			char* filename = ChooseFile(hWnd);
+			ReadTableTextfromFile(filename);
+			RECT rc;
+			rc.bottom = 0;
+			hdc = BeginPaint(hWnd, &ps);
 			SelectObject(hdc, hFont);
-			GetTextMetricsW(hdc, &tm);
-			PrintTable();
-            EndPaint(hWnd, &ps);
-        }
-        break;
+			FindTableParamms(rc);
+			EndPaint(hWnd, &ps);
+			InvalidateRect(hWnd, NULL, TRUE);
+			UpdateWindow(hWnd);
+		}
+		break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+	}
+	break;
+	case WM_PAINT:
+	{
+		hdc = BeginPaint(hWnd, &ps);
+		SelectObject(hdc, hFont);
+		GetTextMetricsW(hdc, &tm);
+		PrintTable();
+		EndPaint(hWnd, &ps);
+	}
+	break;
 	case WM_SIZE:
 	{
-		windowWidth = LOWORD(lParam);
 		windowHeight = HIWORD(lParam);
-		//VerticalScroll(hWnd, lParam);
+		windowWidth = LOWORD(lParam);
 		InvalidateRect(hWnd, NULL, TRUE);
 		UpdateWindow(hWnd);
 	}
 	break;
-    case WM_DESTROY:
+	case WM_SIZING:
+	{
+		hdc = BeginPaint(hWnd, &ps);
+		SelectObject(hdc, hFont);
+		RECT* newWindowRect = (RECT *)(lParam);;
+		FindTableParamms(*newWindowRect);
+		EndPaint(hWnd, &ps);
+	}
+	break;
+	case WM_DESTROY:
 	{
 		DeleteObject(backgroundBrush);
 		DeleteObject(tableBrush);
 		DeleteObject(hFont);
 		PostQuitMessage(0);
 	}
-        break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
-    return 0;
+	break;
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return 0;
 }
 
 // Обработчик сообщений для окна "О программе".
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
 
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
 }
