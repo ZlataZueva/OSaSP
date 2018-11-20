@@ -4,9 +4,13 @@
 #include "stdafx.h"
 #include "CourseWork_GameDots.h"
 #include <vector>
+#include "string.h"
+#include <shellapi.h>
 
 #define MAX_LOADSTRING 100
 #define MEDIUM_CELL_SIZE 20
+#define MEDIUM_FIELD_WIDTH 40
+#define MEDIUM_FIELD_HEIGHT 25
 #define EMPTY_POS 0
 #define FIRST_PLAYER 1
 #define SECOND_PLAYER 2
@@ -20,37 +24,41 @@
 #define NOTEBOOK_COLORS 1
 #define NOTEBOOK_PEN RGB(0,0,200)
 #define NOTEBOOK_BRUSH RGB(250,250,250)
-#define NOTEBOOK_FIRST_DOT_PEN RGB(100, 0, 5)
-#define NOTEBOOK_SECOND_DOT_PEN RGB(5,0,100)
-#define NOTEBOOK_FIRST_DOT_BRUSH RGB(200, 0, 10)
-#define NOTEBOOK_SECOND_DOT_BRUSH RGB(10,0,200)
+#define NOTEBOOK_FIRST_DOT_PEN RGB(150, 10, 10)
+#define NOTEBOOK_SECOND_DOT_PEN RGB(10,10,150)
+#define NOTEBOOK_FIRST_DOT_BRUSH RGB(230, 0, 5)
+#define NOTEBOOK_SECOND_DOT_BRUSH RGB(5,0,230)
 
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
+//WCHAR wsProgramPath[MAX_PATH];
 PAINTSTRUCT ps;
 HDC hdc;
+HBITMAP hBmpBackground;
+BITMAP bmpBackground;
+HDC memDC;
 
 typedef struct DOT {
-	char state;
+	BYTE state;
 	POINT position;
 }DOT, *PDOT;
 
-typedef struct RECTSIZE{
-	int width;
-	int height;
-}RECTSIZE;
+typedef struct SIZESTRUCT{
+	INT x;
+	INT y;
+}SIZESTRUCT;
 
-int cellSize = MEDIUM_CELL_SIZE, radius = cellSize/4;
+INT cellSize = MEDIUM_CELL_SIZE, radius = cellSize/4;
+INT fieldWidth = MEDIUM_FIELD_WIDTH, fieldHeight = MEDIUM_FIELD_HEIGHT;
 std::vector<std::vector<PDOT>> dots;
-//std::vector<std::vector<POINT>> dotsPositions;
-int windowWidth = 0, windowHeight = 0;
-char colorMode = NOTEBOOK_COLORS;
-bool gameStarted = false;
+INT windowWidth = 0, windowHeight = 0;
+BYTE colorMode = NOTEBOOK_COLORS;
+BOOLEAN gameStarted = FALSE;
 POINT dotOver;
-char move = FIRST_PLAYER;
+BYTE move = FIRST_PLAYER;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -63,12 +71,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
                      _In_ int       nCmdShow)
-{
+{	
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: разместите код здесь.
-
+	//GetModuleFileNameW(NULL, wsProgramPath, MAX_PATH);
+	
     // Инициализация глобальных строк
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_COURSEWORK_GAMEDOTS, szWindowClass, MAX_LOADSTRING);
@@ -98,12 +106,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 
-
-//
-//  ФУНКЦИЯ: MyRegisterClass()
-//
-//  НАЗНАЧЕНИЕ: регистрирует класс окна.
-//
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -115,26 +117,16 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = 0;
     wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_COURSEWORK_GAMEDOTS));
+    wcex.hIcon          = LoadIconW(hInstance, MAKEINTRESOURCE(IDI_ICON1));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_COURSEWORK_GAMEDOTS);
     wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_ICON1));
 
     return RegisterClassExW(&wcex);
 }
 
-//
-//   ФУНКЦИЯ: InitInstance(HINSTANCE, int)
-//
-//   НАЗНАЧЕНИЕ: сохраняет обработку экземпляра и создает главное окно.
-//
-//   КОММЕНТАРИИ:
-//
-//        В данной функции дескриптор экземпляра сохраняется в глобальной переменной, а также
-//        создается и выводится на экран главное окно программы.
-//
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить дескриптор экземпляра в глобальной переменной
@@ -153,12 +145,37 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
-void LineField(int fieldWidth, int fieldHeight)
+BOOL LoadBackgroundImage(HWND hWnd)
+{
+	/*WCHAR wsImagePath[MAX_PATH];
+	wcscpy_s(wsImagePath, MAX_PATH, wsProgramPath);
+	PWCHAR pwcLastSlash = wcsrchr(wsImagePath, L'\\');
+	*pwcLastSlash = L'\0';
+	pwcLastSlash = wcsrchr(wsImagePath, L'\\');
+	wcscpy_s(pwcLastSlash, 20, L"\\images\\desktop.bmp");*/
+	hBmpBackground = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP1));
+	//hBmpBackground = (HBITMAP)LoadImageW(NULL, wsImagePath, IMAGE_BITMAP, windowWidth, windowHeight, LR_LOADFROMFILE | LR_LOADTRANSPARENT);
+	GetObjectW(hBmpBackground, sizeof(bmpBackground), &bmpBackground);
+	hdc = GetDC(hWnd);
+	memDC = CreateCompatibleDC(hdc);
+	SelectObject(memDC, hBmpBackground);
+	ReleaseDC(hWnd, hdc);
+	return TRUE;
+}
+
+VOID ShowBackground(int x, int y)
+{
+	BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
+}
+
+VOID LineField(int fieldWidth, int fieldHeight)
 {
 	int marginLR = (windowWidth - fieldWidth)/2, marginTB = (windowHeight-fieldHeight)/2;
-	//int fieldWidth = windowWidth - 2 * margin, fieldHeight = windowHeight - 2 * margin;
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+	SelectObject(hdc, GetStockObject(NULL_PEN));
+	Rectangle(hdc, marginLR, marginTB, marginLR + fieldWidth, marginTB + fieldHeight);
+	SelectObject(hdc, GetStockObject(DC_PEN));
 	switch (colorMode)
 	{
 	case STANDARD_COLORS:
@@ -174,14 +191,14 @@ void LineField(int fieldWidth, int fieldHeight)
 		}
 		break;
 	}
-	//Rectangle(hdc, marginLR, marginTB, marginLR + fieldWidth, marginTB+fieldHeight);
-	int countHorisontal = 0, countVertical = 0, x = marginLR, y=marginTB;
+	//int countHorisontal = 0, countVertical = 0;
+	int x = marginLR, y = marginTB;
 	while (x <= (windowWidth - marginLR))
 	{
 		MoveToEx(hdc, x, y, NULL);
 		LineTo(hdc, x, y + fieldHeight);
 		x += cellSize;
-		countHorisontal++;
+		//countHorisontal++;
 	}
 	x = marginLR;
 	while (y <= (windowHeight - marginTB))
@@ -189,54 +206,72 @@ void LineField(int fieldWidth, int fieldHeight)
 		MoveToEx(hdc, x, y, NULL);
 		LineTo(hdc, x + fieldWidth, y);
 		y += cellSize;
-		countVertical++;
-	}
-
-	if (!gameStarted)
-	{
-		y = marginTB;
-		std::vector<std::vector<PDOT>> dotsMatrix(countVertical);
-		//std::vector<std::vector<char>> dotsPosMatrix(countHorisontal);
-		for (int i = 0; i < countVertical; i++)
-		{
-			x = marginLR;
-			std::vector<PDOT> dotsArr(countHorisontal);
-			for (int j = 0; j < countHorisontal; j++)
-			{
-				dotsArr[j] = (PDOT) malloc (sizeof (DOT));
-				dotsArr[j]->state = EMPTY_POS;
-				dotsArr[j]->position.x = x;
-				dotsArr[j]->position.y = y;
-				x += cellSize;
-			}
-			dotsMatrix[i] = dotsArr;
-			y += cellSize;
-		}
-		dots = dotsMatrix;
+		//countVertical++;
 	}
 	SelectObject(hdc, originalPen);
 	SelectObject(hdc, originalBrush);
 }
 
+VOID FindCoordinates()
+{
+	if (!gameStarted)
+	{
+		std::vector<std::vector<PDOT>> dotsMatrix(fieldHeight);
+		for (int i = 0; i < fieldHeight; i++)
+		{
+			std::vector<PDOT> dotsArr(fieldWidth);
+			for (int j = 0; j < fieldWidth; j++)
+			{
+				dotsArr[j] = (PDOT)malloc(sizeof(DOT));
+				dotsArr[j]->state = EMPTY_POS;
+			}
+			dotsMatrix[i] = dotsArr;
+		}
+		dots = dotsMatrix;
+	}
+
+	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
+	int y = marginTB;
+	for (int i =0; i<fieldHeight;i++)
+	{
+		int x = marginLR;
+		for (int j = 0; j < fieldWidth; j++)
+		{
+			dots[i][j]->position.x = x;
+			dots[i][j]->position.y = y;
+			x += cellSize;
+		}
+		y += cellSize;
+	}
+}
+
+BOOLEAN IsOnField(int x, int y)
+{
+	INT marginLR = (windowWidth - fieldWidth*cellSize) / 2,
+		marginTB = (windowHeight - fieldHeight*cellSize) / 2;
+	return (x > marginLR && x<(marginLR + fieldWidth*cellSize) && y>marginTB && y < (marginTB + fieldHeight*cellSize));
+}
+
 POINT GetClosestDotPos(int x, int y)
 {
-	POINT dot;
-	if ((x < windowWidth) && (y < windowHeight))
+	if (IsOnField(x, y))
 	{
-		dot = dots[0][0]->position;
-		while (abs(dot.x - x) >= cellSize/2+1)
+		POINT dot = dot = dots[0][0]->position;
+		while (abs(dot.x - x) >= cellSize / 2 + 1)
 		{
 			dot.x += cellSize;
 		}
-		while (abs(dot.y - y) >= cellSize/2+1)
+		while (abs(dot.y - y) >= cellSize / 2 + 1)
 		{
 			dot.y += cellSize;
 		}
+		return dot;
 	}
-	return dot;
+	else
+		return dotOver;
 }
 
-void HighliteDot(POINT dot)
+VOID HighliteDot(POINT dot)
 {
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
@@ -280,58 +315,69 @@ void HighliteDot(POINT dot)
 
 PDOT GetClosestDot(int x, int y)
 {
-	POINT dotPos = GetClosestDotPos(x, y);
 	PDOT dotPtr = dots[0][0];
-	int rowNum = (int)dots.size();
-	int columnNum = (int)dots[0].size();
-	for (int i = 0; i < rowNum; i++)
+	if (IsOnField(x, y))
 	{
-		for (int j = 0; j < columnNum; j++)
+		POINT dotPos = GetClosestDotPos(x, y);
+		int rowNum = (int)dots.size();
+		int columnNum = (int)dots[0].size();
+		for (int i = 0; i < rowNum; i++)
 		{
-			if (dots[i][j]->position.x == dotPos.x && dots[i][j]->position.y == dotPos.y)
+			for (int j = 0; j < columnNum; j++)
 			{
-				dotPtr = dots[i][j];
+				if (dots[i][j]->position.x == dotPos.x && dots[i][j]->position.y == dotPos.y)
+				{
+					dotPtr = dots[i][j];
+				}
 			}
 		}
 	}
 	return dotPtr;
 }
 
-char GetDotState(int x, int y)
+BYTE GetDotState(int x, int y)
 {
 	return GetClosestDot(x, y)->state;
 }
 
-void PlaceDot(int x, int y)
+VOID PlaceDot(int x, int y)
 {
-	gameStarted = true;
-	PDOT dotClicked = GetClosestDot(x, y);
-	char state = dotClicked->state;
-	if (state == EMPTY_POS)
+	
+	if (IsOnField(x,y))
 	{
-		switch (move)
+		gameStarted = TRUE;
+		PDOT dotClicked = GetClosestDot(x, y);
+		BYTE state = dotClicked->state;
+		if (state == EMPTY_POS)
 		{
-		case FIRST_PLAYER:
+			switch (move)
+			{
+			case FIRST_PLAYER:
 			{
 				dotClicked->state = FIRST_PLAYER;
 				move = SECOND_PLAYER;
 			}
 			break;
-		case SECOND_PLAYER:
+			case SECOND_PLAYER:
 			{
 				dotClicked->state = SECOND_PLAYER;
 				move = FIRST_PLAYER;
 			}
 			break;
+			}
 		}
 	}
 }
 
-void DrawDots()
+BOOLEAN FindClosedArea()
+{
+	return FALSE;
+} 
+
+VOID DrawDots()
 {
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SelectObject(hdc, GetStockObject(NULL_PEN));
 	int rowNum = (int)dots.size();
 	int columnNum = (int)dots[0].size();
 
@@ -339,11 +385,13 @@ void DrawDots()
 	{
 	case STANDARD_COLORS:
 	{
+		SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_PEN));
 		SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_BRUSH));
 	}
 	break;
 	case NOTEBOOK_COLORS:
 	{
+		SetDCPenColor(hdc, NOTEBOOK_FIRST_DOT_PEN);
 		SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
 	}
 	break;
@@ -364,11 +412,13 @@ void DrawDots()
 	{
 	case STANDARD_COLORS:
 	{
+		SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
 		SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
 	}
 	break;
 	case NOTEBOOK_COLORS:
 	{
+		SetDCPenColor(hdc, NOTEBOOK_SECOND_DOT_PEN);
 		SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
 	}
 	break;
@@ -394,7 +444,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
 	case WM_CREATE:
 		{
-			
+			LoadBackgroundImage(hWnd);
 		}
 		break;
     case WM_COMMAND:
@@ -417,7 +467,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         { 
 			hdc = BeginPaint(hWnd, &ps);
-			LineField(windowWidth -10, windowHeight - 10);
+			ShowBackground(windowWidth, windowHeight);
+			LineField(fieldWidth*cellSize, fieldHeight*cellSize);
 			HighliteDot(dotOver);
 			DrawDots();
             EndPaint(hWnd, &ps);
@@ -427,6 +478,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			windowWidth = LOWORD(lParam);
 			windowHeight = HIWORD(lParam);
+			FindCoordinates();
 			InvalidateRect(hWnd, NULL, TRUE);
 			UpdateWindow(hWnd);
 		}
