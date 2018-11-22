@@ -6,14 +6,18 @@
 #include <vector>
 #include "string.h"
 #include <shellapi.h>
+#include <string>
+#include <algorithm>
 
 #define MAX_LOADSTRING 100
+#define MAX_CYCLESTRING 50
+#define VERTEX_NEIGHBORS_AMOUNT 8
 #define MEDIUM_CELL_SIZE 20
 #define MEDIUM_FIELD_WIDTH 40
 #define MEDIUM_FIELD_HEIGHT 25
-#define EMPTY_POS 0
-#define FIRST_PLAYER 1
-#define SECOND_PLAYER 2
+#define EMPTY_POS 255
+#define FIRST_PLAYER 0
+#define SECOND_PLAYER 1
 #define STANDARD_COLORS 0
 #define STANDARD_PEN BLACK_PEN
 #define STANDARD_BRUSH GRAY_BRUSH
@@ -43,7 +47,8 @@ HDC memDC;
 
 typedef struct DOT {
 	BYTE state;
-	POINT position;
+	//POINT physicaСoordinate;
+	POINT logicalCoordinate;
 }DOT, *PDOT;
 
 typedef struct SIZESTRUCT{
@@ -51,14 +56,33 @@ typedef struct SIZESTRUCT{
 	INT y;
 }SIZESTRUCT;
 
+typedef struct VERTEX {
+	INT num;
+	POINT logicalCoordinate;
+	//INT neighborsArr[VERTEX_NEIGHBORS_AMOUNT] = {EMPTY_POS};
+	BOOLEAN isAvailable = TRUE;
+}VERTEX, *PVERTEX;
+
+typedef struct EDGE {
+	INT num1;
+	INT num2;
+	BOOLEAN ofClosedArea = FALSE;
+} EDGE;
+
 INT cellSize = MEDIUM_CELL_SIZE, radius = cellSize/4;
 INT fieldWidth = MEDIUM_FIELD_WIDTH, fieldHeight = MEDIUM_FIELD_HEIGHT;
+std::vector<std::vector<PPOINT>> logicalToPhysical;
 std::vector<std::vector<PDOT>> dots;
+std::vector<VERTEX> vertexes;
+std::vector<std::vector<UINT>> closedAreas;
+//std::vector<EDGE> edges;
 INT windowWidth = 0, windowHeight = 0;
 BYTE colorMode = NOTEBOOK_COLORS;
-BOOLEAN gameStarted = FALSE;
+//BOOLEAN gameStarted = FALSE;
+INT moveNum = 0;
+INT playersAmount = 2;
 POINT dotOver;
-BYTE move = FIRST_PLAYER;
+//BYTE movePlayer = FIRST_PLAYER;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -212,22 +236,35 @@ VOID LineField(int fieldWidth, int fieldHeight)
 	SelectObject(hdc, originalBrush);
 }
 
-VOID FindCoordinates()
+VOID InitializeDotsMatrix()
 {
-	if (!gameStarted)
+	std::vector<std::vector<PDOT>> dotsMatrix(fieldHeight);
+	std::vector<std::vector<PPOINT>> physicalCoordinatesMatrix(fieldHeight);
+	for (int i = 0; i < fieldHeight; i++)
 	{
-		std::vector<std::vector<PDOT>> dotsMatrix(fieldHeight);
-		for (int i = 0; i < fieldHeight; i++)
+		std::vector<PDOT> dotsArr(fieldWidth);
+		std::vector<PPOINT> physicalCoordinatesArr(fieldWidth);
+		for (int j = 0; j < fieldWidth; j++)
 		{
-			std::vector<PDOT> dotsArr(fieldWidth);
-			for (int j = 0; j < fieldWidth; j++)
-			{
-				dotsArr[j] = (PDOT)malloc(sizeof(DOT));
-				dotsArr[j]->state = EMPTY_POS;
-			}
-			dotsMatrix[i] = dotsArr;
+			dotsArr[j] = (PDOT)malloc(sizeof(DOT));
+			dotsArr[j]->state = EMPTY_POS;
+			dotsArr[j]->logicalCoordinate.x = i;
+			dotsArr[j]->logicalCoordinate.y = j;
+
+			physicalCoordinatesArr[j] = (PPOINT)malloc(sizeof(POINT));
 		}
-		dots = dotsMatrix;
+		dotsMatrix[i] = dotsArr;
+		physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
+	}
+	dots = dotsMatrix;
+	logicalToPhysical = physicalCoordinatesMatrix;
+}
+
+VOID FindPhysicalCoordinates()
+{
+	if (moveNum == 0)
+	{
+		InitializeDotsMatrix();
 	}
 
 	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
@@ -237,8 +274,11 @@ VOID FindCoordinates()
 		int x = marginLR;
 		for (int j = 0; j < fieldWidth; j++)
 		{
-			dots[i][j]->position.x = x;
-			dots[i][j]->position.y = y;
+			/*dots[i][j]->physicaСoordinate.x = x;
+			dots[i][j]->physicaСoordinate.y = y;*/
+
+			logicalToPhysical[i][j]->x = x;
+			logicalToPhysical[i][j]->y = y;
 			x += cellSize;
 		}
 		y += cellSize;
@@ -256,7 +296,7 @@ POINT GetClosestDotPos(int x, int y)
 {
 	if (IsOnField(x, y))
 	{
-		POINT dot = dot = dots[0][0]->position;
+		POINT dot = dot = *logicalToPhysical[0][0];
 		while (abs(dot.x - x) >= cellSize / 2 + 1)
 		{
 			dot.x += cellSize;
@@ -276,37 +316,42 @@ VOID HighliteDot(POINT dot)
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	SelectObject(hdc, GetStockObject(NULL_BRUSH));
-	if (move == FIRST_PLAYER)
+	switch (moveNum%playersAmount)
 	{
-		switch (colorMode)
+	case FIRST_PLAYER:
 		{
-		case STANDARD_COLORS:
+			switch (colorMode)
 			{
-				SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_PEN));
-			}
+			case STANDARD_COLORS:
+				{
+					SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_PEN));
+				}
 			break;
-		case NOTEBOOK_COLORS:
-			{
-				SetDCPenColor(hdc, NOTEBOOK_FIRST_DOT_PEN);
-			}
+			case NOTEBOOK_COLORS:
+				{
+					SetDCPenColor(hdc, NOTEBOOK_FIRST_DOT_PEN);
+				}
 			break;
-		}
-	}
-	else
-	{
-		switch (colorMode)
-		{
-		case STANDARD_COLORS:
-		{
-			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+			}
 		}
 		break;
-		case NOTEBOOK_COLORS:
+	case SECOND_PLAYER:
 		{
-			SetDCPenColor(hdc, NOTEBOOK_SECOND_DOT_PEN);
+			switch (colorMode)
+			{
+			case STANDARD_COLORS:
+				{
+					SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+				}
+			break;
+			case NOTEBOOK_COLORS:
+				{
+					SetDCPenColor(hdc, NOTEBOOK_SECOND_DOT_PEN);
+				}
+			break;
+			}
 		}
 		break;
-		}
 	}
 	Ellipse(hdc, dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
 	SelectObject(hdc, originalPen);
@@ -325,7 +370,7 @@ PDOT GetClosestDot(int x, int y)
 		{
 			for (int j = 0; j < columnNum; j++)
 			{
-				if (dots[i][j]->position.x == dotPos.x && dots[i][j]->position.y == dotPos.y)
+				if (logicalToPhysical[i][j]->x == dotPos.x && logicalToPhysical[i][j]->y == dotPos.y)
 				{
 					dotPtr = dots[i][j];
 				}
@@ -340,97 +385,318 @@ BYTE GetDotState(int x, int y)
 	return GetClosestDot(x, y)->state;
 }
 
-VOID PlaceDot(int x, int y)
+VOID FindCycles(PVERTEX lastPlaced, PVERTEX current, std::vector<UINT> *cycle, std::vector<std::vector<UINT>> *cyclesVector, UINT recursionDepth)
 {
-	
-	if (IsOnField(x,y))
+	//std::wstring newCycle = cycle + std::to_wstring(current->num);
+	//PWCHAR strCurrentNum = (PWCHAR)malloc(sizeof(WCHAR) * 5);
+	//_itow_s(current->num, strCurrentNum, sizeof(WCHAR) * 5, 10);
+	//INT newCycleSize = wcslen(cycle) + wcslen(strCurrentNum)+2;
+	//PWCHAR newCycle = (PWCHAR)malloc(sizeof(WCHAR)*newCycleSize);
+	//wcscpy_s(newCycle, newCycleSize, cycle);
+	//wcscat_s(newCycle, newCycleSize, strCurrentNum);
+	////free(strCurrentNum);
+	//strCurrentNum = NULL;
+	std::vector<UINT> newCycle = *cycle;
+	newCycle.push_back(current->num);
+
+	current->isAvailable = FALSE;
+	if (lastPlaced->num == current->num && recursionDepth > 2)
 	{
-		gameStarted = TRUE;
-		PDOT dotClicked = GetClosestDot(x, y);
-		BYTE state = dotClicked->state;
-		if (state == EMPTY_POS)
+		cyclesVector->push_back(newCycle);
+	}
+	else if (lastPlaced->num != current->num || recursionDepth == 0)
+	{
+		//wcscat_s(newCycle, newCycleSize, L"-");
+		//newCycle += L"-";
+		int player = moveNum%playersAmount;
+		for (int i = player; i <= moveNum; i+=playersAmount)
 		{
-			switch (move)
+			if (i!=current->num && abs(vertexes[i].logicalCoordinate.x - current->logicalCoordinate.x) <= 1 &&        //если соседняя
+				abs(vertexes[i].logicalCoordinate.y - current->logicalCoordinate.y) <= 1 &&
+				(vertexes[i].isAvailable || vertexes[i].num == lastPlaced->num))                                     //если еще не добавлена в цикл или последняя
 			{
-			case FIRST_PLAYER:
-			{
-				dotClicked->state = FIRST_PLAYER;
-				move = SECOND_PLAYER;
+				FindCycles(lastPlaced, &vertexes[i], &newCycle, cyclesVector, recursionDepth + 1);
 			}
-			break;
-			case SECOND_PLAYER:
+		}
+		//free(newCycle);
+		//newCycle = NULL;
+		newCycle.clear();
+	}
+	else
+	{
+		/*free(newCycle);
+		newCycle = NULL;*/
+		newCycle.clear();
+	}
+	current->isAvailable = TRUE;
+}
+
+//int CompareUINT(const void *a, const void *b)
+//{
+//	return (*(UINT *)a - *(UINT *)b);
+//}
+
+BOOLEAN CompareVectors(std::vector<UINT> a, std::vector<UINT> b)
+{
+	/*std::vector<UINT> *vA = ((std::vector<UINT> *)a);
+	std::vector<UINT> *vB = ((std::vector<UINT> *)b);*/
+	if (a.size() > b.size())
+		return TRUE;
+	return FALSE;
+}
+
+std::vector<std::vector<UINT>> ExcludeIncludedInOther(std::vector<std::vector<UINT>> *cyclesFound)
+{
+	std::sort(cyclesFound->begin(), cyclesFound->end(), CompareVectors);
+	std::vector<std::vector<UINT>> cyclesTempSorted = *cyclesFound;
+	for (UINT i = 0; i < cyclesTempSorted.size(); i++)
+	{
+		std::sort(cyclesTempSorted[i].begin(), cyclesTempSorted[i].end());
+	}
+	std::vector<UINT> differentCyclesNums;
+	differentCyclesNums.push_back(0);
+	for (UINT i = 1; i < cyclesTempSorted.size(); i++)
+	{
+		BOOLEAN isToBeIncluded = TRUE;
+		for (UINT j = 0; j < differentCyclesNums.size(); j++)
+		{
+			BOOLEAN isDifferent = TRUE;
+			BOOLEAN isPartOfAnother = TRUE;
+			std::vector<UINT> differentVector = cyclesTempSorted[differentCyclesNums[j]];
+			if (cyclesTempSorted[i] == differentVector)
 			{
-				dotClicked->state = SECOND_PLAYER;
-				move = FIRST_PLAYER;
+				isDifferent = FALSE;
 			}
-			break;
+			else
+			{
+				for (UINT num = 0; num < cyclesTempSorted[i].size(); num++)
+				{
+					if (!std::binary_search(differentVector.begin(), differentVector.end(), cyclesTempSorted[i][num]))
+						isPartOfAnother = FALSE;
+				}
+			}
+			if (!isDifferent || isPartOfAnother)
+			{
+				isToBeIncluded = FALSE;
+				break;
+			}
+		}
+		if (isToBeIncluded)
+			differentCyclesNums.push_back(i);
+	}
+	std::vector<std::vector<UINT>> cyclesFiltered;
+	for (UINT i = 0; i < differentCyclesNums.size(); i++)
+		cyclesFiltered.push_back((*cyclesFound)[differentCyclesNums[i]]);
+	return cyclesFiltered;
+}
+
+BOOLEAN isWithOtherPlayersDots(std::vector<UINT> *cycle)
+{
+	BOOLEAN isFound = FALSE;
+	INT player = vertexes[(*cycle)[0]].num%playersAmount;
+	INT theHighest=fieldHeight, theLowest = 0;
+	for (UINT i = 0; i < cycle->size() -1; i++)
+	{
+		INT y = vertexes[(*cycle)[i]].logicalCoordinate.y;
+		if (y > theLowest)
+			theLowest = y;
+		if (y < theHighest)
+			theHighest = y;
+	}
+	for (INT row = theHighest; row < theLowest; row++)
+	{
+		INT left = fieldWidth, right = 0;
+		for (UINT i = 0; i < cycle->size() - 1; i++)
+		{
+			if (vertexes[(*cycle)[i]].logicalCoordinate.y == row)
+			{
+				INT x = vertexes[(*cycle)[i]].logicalCoordinate.x;
+				if (x > right)
+					right = x;
+				if (x < left)
+					left = x;
+			}
+		}
+		for (UINT i = 0; i < vertexes.size(); i++)
+		{
+			if (vertexes[i].num%playersAmount != player && //если не своя
+				vertexes[i].isAvailable &&				   //если не захвачена
+				vertexes[i].logicalCoordinate.y == row  && //если на том же ряду
+				vertexes[i].logicalCoordinate.x>left &&    //если правее левой границы
+				vertexes[i].logicalCoordinate.x<right)     //если левее правой границы
+			{
+				vertexes[i].isAvailable = FALSE;
+				isFound = TRUE;
 			}
 		}
 	}
+	return isFound;
 }
 
 BOOLEAN FindClosedArea()
 {
-	return FALSE;
-} 
+	BOOLEAN isFound = FALSE;
+	int player = moveNum%playersAmount;
+	PVERTEX lastPlacedVertexPtr = &vertexes[moveNum];
+	//std::vector<std::wstring> cycles;
+	std::vector<std::vector<UINT>> cyclesFound;
+	FindCycles(lastPlacedVertexPtr, lastPlacedVertexPtr, new std::vector<UINT>, &cyclesFound, 0);
+	for (UINT i = 0; i < cyclesFound.size(); i++)
+	{
+		if (cyclesFound[i].size()<5)
+		{
+			cyclesFound.erase(cyclesFound.begin() + i);
+		}
+	}
+	//for (int i = player; i <= moveNum; i += playersAmount)
+	//	vertexes[i].isAvailable = TRUE;
+	if (cyclesFound.size() > 0)
+	{
+		cyclesFound = ExcludeIncludedInOther(&cyclesFound);
+		if (cyclesFound.size() > 0)
+		{
+			for (UINT i = 0; i < cyclesFound.size(); i++)
+			{
+				if (!isWithOtherPlayersDots(&cyclesFound[i]))
+				{
+					cyclesFound.erase(cyclesFound.begin() + i);
+				}
+				else
+				{
+					closedAreas.push_back(cyclesFound[i]);
+				}
+			}
+			if (cyclesFound.size() > 0)
+			{
+				isFound = TRUE;	
+			}
+		}
+	}
+	return isFound;
+}
+
+VOID SetPlayerColors(UINT player)
+{
+	switch (player)
+	{
+	case FIRST_PLAYER:
+	{
+		
+		switch (colorMode)
+		{
+		case STANDARD_COLORS:
+		{
+			SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_PEN));
+			SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_BRUSH));
+		}
+		break;
+		case NOTEBOOK_COLORS:
+		{
+			HPEN playersPen = CreatePen(PS_SOLID, 5, NOTEBOOK_FIRST_DOT_PEN);
+			SelectObject(hdc, playersPen);
+			SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
+		}
+		break;
+		}
+	}
+	break;
+	case SECOND_PLAYER:
+	{
+		switch (colorMode)
+		{
+		case STANDARD_COLORS:
+		{
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
+		}
+		break;
+		case NOTEBOOK_COLORS:
+		{
+			HPEN playersPen = CreatePen(PS_SOLID, 5, NOTEBOOK_SECOND_DOT_PEN);
+			SelectObject(hdc, playersPen);
+			SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
+		}
+		break;
+		}
+	}
+	break;
+	}
+}
+
+VOID DrawClosedAreas()
+{
+	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
+	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+	for (UINT i = 0; i < closedAreas.size(); i++)
+	{
+		INT player = closedAreas[i][0] % playersAmount;
+		SetPlayerColors(player);
+		for (UINT j = 0; j < closedAreas[i].size()-1; j++)
+		{
+			POINT fromLogical = vertexes[closedAreas[i][j]].logicalCoordinate;
+			POINT toLogical = vertexes[closedAreas[i][j+1]].logicalCoordinate;
+			PPOINT fromPhysical = logicalToPhysical[fromLogical.x][fromLogical.y];
+			PPOINT toPhysical = logicalToPhysical[toLogical.x][toLogical.y];
+			
+			MoveToEx(hdc, fromPhysical->x, fromPhysical->y, NULL);
+			LineTo(hdc, toPhysical->x, toPhysical->y);
+		}
+	}
+	SelectObject(hdc, originalPen);
+	SelectObject(hdc, originalBrush);
+}
+
+VOID AddVertex(int num, int xLogical, int yLogical)
+{
+	VERTEX newVertex;
+	newVertex.num = num;
+	newVertex.logicalCoordinate.x = xLogical;
+	newVertex.logicalCoordinate.y = yLogical;
+	vertexes.push_back(newVertex);
+	if (num > 5)
+	{
+		FindClosedArea();
+	}
+	//newVertex.isAvailable = TRUE;
+	//for (int )
+}
+
+VOID PlaceDot(int x, int y)
+{
+	if (IsOnField(x,y))
+	{
+		PDOT dotClicked = GetClosestDot(x, y);
+		BYTE state = dotClicked->state;
+		if (state == EMPTY_POS)
+		{
+			dotClicked->state = (moveNum%playersAmount);
+			AddVertex(moveNum, dotClicked->logicalCoordinate.x, dotClicked->logicalCoordinate.y);
+			moveNum++;
+		}
+	}
+}
 
 VOID DrawDots()
 {
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
-	int rowNum = (int)dots.size();
-	int columnNum = (int)dots[0].size();
-
-	switch (colorMode)
+	for (UINT player = FIRST_PLAYER; player < FIRST_PLAYER + playersAmount; player++)
 	{
-	case STANDARD_COLORS:
-	{
-		SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_PEN));
-		SelectObject(hdc, GetStockObject(STANDARD_FIRST_DOT_BRUSH));
-	}
-	break;
-	case NOTEBOOK_COLORS:
-	{
-		SetDCPenColor(hdc, NOTEBOOK_FIRST_DOT_PEN);
-		SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
-	}
-	break;
-	}
-	for (int i = 0; i < rowNum; i++)
-	{
-		for (int j = 0; j < columnNum; j++)
+		SetPlayerColors(player);
+		/*for (UINT i = player; i < vertexes.size(); i += playersAmount)
 		{
-			if (dots[i][j]->state == FIRST_PLAYER)
-			{
-				POINT dotPos = dots[i][j]->position;
-				Ellipse(hdc, dotPos.x - radius, dotPos.y - radius, dotPos.x + radius, dotPos.y + radius);
-			}
-		}
-	}
-
-	switch (colorMode)
-	{
-	case STANDARD_COLORS:
-	{
-		SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
-		SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
-	}
-	break;
-	case NOTEBOOK_COLORS:
-	{
-		SetDCPenColor(hdc, NOTEBOOK_SECOND_DOT_PEN);
-		SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
-	}
-	break;
-	}
-	for (int i = 0; i < rowNum; i++)
-	{
-		for (int j = 0; j < columnNum; j++)
+			POINT dotPos = *logicalToPhysical[vertexes[i].logicalCoordinate.x][vertexes[i].logicalCoordinate.y];
+			Ellipse(hdc, dotPos.x - radius, dotPos.y - radius, dotPos.x + radius, dotPos.y + radius);
+		}*/
+		for (int i = 0; i < fieldHeight; i++)
 		{
-			if (dots[i][j]->state == SECOND_PLAYER)
+			for (int j = 0; j < fieldWidth; j++)
 			{
-				POINT dotPos = dots[i][j]->position;
-				Ellipse(hdc, dotPos.x - radius, dotPos.y - radius, dotPos.x + radius, dotPos.y + radius);
+				if (dots[i][j]->state == player)
+				{
+					POINT dotPos = *logicalToPhysical[i][j];
+					Ellipse(hdc, dotPos.x - radius, dotPos.y - radius, dotPos.x + radius, dotPos.y + radius);
+				}
 			}
 		}
 	}
@@ -471,6 +737,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			LineField(fieldWidth*cellSize, fieldHeight*cellSize);
 			HighliteDot(dotOver);
 			DrawDots();
+			DrawClosedAreas();
             EndPaint(hWnd, &ps);
         }
         break;
@@ -478,7 +745,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			windowWidth = LOWORD(lParam);
 			windowHeight = HIWORD(lParam);
-			FindCoordinates();
+			FindPhysicalCoordinates();
 			InvalidateRect(hWnd, NULL, TRUE);
 			UpdateWindow(hWnd);
 		}
@@ -498,12 +765,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_LBUTTONDOWN:
 		{
-			HRGN rect1 = CreateRectRgn(dotOver.x - radius, dotOver.y - radius, dotOver.x + radius, dotOver.y + radius);
 			PlaceDot(LOWORD(lParam), HIWORD(lParam));
+			/*HRGN rect1 = CreateRectRgn(dotOver.x - radius, dotOver.y - radius, dotOver.x + radius, dotOver.y + radius);
+			
 			HRGN rect2 = CreateRectRgn(LOWORD(lParam) - 2*radius, HIWORD(lParam) - 2*radius, LOWORD(lParam) + 2*radius, HIWORD(lParam) + 2*radius);
 			HRGN updateRgn = rect2;
-			CombineRgn(updateRgn, rect1, rect2, RGN_OR);
-			InvalidateRgn(hWnd, updateRgn, TRUE);
+			CombineRgn(updateRgn, rect1, rect2, RGN_OR);*/
+			InvalidateRgn(hWnd, NULL, TRUE);
 			UpdateWindow(hWnd);
 		}
 		break;
