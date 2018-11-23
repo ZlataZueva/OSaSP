@@ -48,6 +48,7 @@
 #define NOTEBOOK_SECOND_DOT_BRUSH RGB(10,10,150)
 #define NOTEBOOK_THIRD_DOT_BRUSH RGB(10,150,10)
 
+using namespace std;
 
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
@@ -295,9 +296,9 @@ VOID ShowBackground(HWND hWnd)
 VOID LineField(int fieldWidth, int fieldHeight)
 {
 	int marginLR = (windowWidth - fieldWidth)/2, marginTB = (windowHeight-fieldHeight)/2;
-	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
+	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SelectObject(hdc, GetStockObject(NULL_PEN));
+	//SelectObject(hdc, );
 	Rectangle(hdc, marginLR, marginTB, marginLR + fieldWidth, marginTB + fieldHeight);
 	SelectObject(hdc, GetStockObject(DC_PEN));
 	switch (colorMode)
@@ -332,8 +333,10 @@ VOID LineField(int fieldWidth, int fieldHeight)
 		y += cellSize;
 		//countVertical++;
 	}
-	SelectObject(hdc, originalPen);
-	SelectObject(hdc, originalBrush);
+	if (originalPen != NULL) 
+		SelectObject(hdc, originalPen);
+	if (originalBrush != NULL)
+		SelectObject(hdc, originalBrush);
 }
 
 VOID InitializeDotsMatrix()
@@ -457,8 +460,10 @@ VOID HighliteDot(HWND hWnd, POINT dot)
 		break;
 	}*/
 	Ellipse(hdc, dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
-	SelectObject(hdc, originalPen);
-	SelectObject(hdc, originalBrush);
+	if (originalPen != NULL)
+		SelectObject(hdc, originalPen);
+	if (originalBrush != NULL)
+		SelectObject(hdc, originalBrush);
 	//ReleaseDC(hWnd, hdc);
 }
 
@@ -594,46 +599,66 @@ std::vector<std::vector<UINT>> ExcludeIncludedInOther(std::vector<std::vector<UI
 	return cyclesFiltered;
 }
 
-BOOLEAN isWithOtherPlayersDots(std::vector<UINT> *cycle)
+BOOLEAN FindOtherPlayersDots(vector<UINT> *cycle)
 {
 	BOOLEAN isFound = FALSE;
 	INT player = vertexes[(*cycle)[0]].num%playersAmount;
-	INT theHighest=fieldHeight, theLowest = 0;
+	INT theMostLeft = fieldWidth, theMostRight = 0;
+	INT theHighest = fieldHeight, theLowest = 0;
+	POINT *polygonPoints;
+	polygonPoints = (POINT*)malloc(sizeof(POINT)*(cycle->size() - 1));
 	for (UINT i = 0; i < cycle->size() -1; i++)
 	{
-		INT y = vertexes[(*cycle)[i]].logicalCoordinate.y;
-		if (y > theLowest)
-			theLowest = y;
-		if (y < theHighest)
-			theHighest = y;
+		POINT logicalCoordinate = vertexes[(*cycle)[i]].logicalCoordinate;
+		/*INT y = vertexes[(*cycle)[i]].logicalCoordinate.y;
+		INT x = vertexes[(*cycle)[i]].logicalCoordinate.x;*/
+		if (logicalCoordinate.x > theMostRight)
+			theMostRight = logicalCoordinate.x;
+		if (logicalCoordinate.x < theMostLeft)
+			theMostLeft = logicalCoordinate.x;
+		if (logicalCoordinate.y < theHighest)
+			theHighest = logicalCoordinate.y;
+		if (logicalCoordinate.y > theLowest)
+			theLowest = logicalCoordinate.y;
+		
+		POINT physicalCoordinate = *logicalToPhysical[logicalCoordinate.x][logicalCoordinate.y];
+		polygonPoints[i] = physicalCoordinate;
 	}
-	for (INT row = theHighest; row < theLowest; row++)
+	HRGN polygonRgn = CreatePolygonRgn(polygonPoints, cycle->size() - 1, WINDING);
+	/*for (INT column = theMostLeft+1; column < theMostRight; column++)
 	{
-		INT left = fieldWidth, right = 0;
+		INT high = fieldWidth, low = 0;
 		for (UINT i = 0; i < cycle->size() - 1; i++)
 		{
-			if (vertexes[(*cycle)[i]].logicalCoordinate.y == row)
+			if (vertexes[(*cycle)[i]].logicalCoordinate.y == column)
 			{
 				INT x = vertexes[(*cycle)[i]].logicalCoordinate.x;
-				if (x > right)
-					right = x;
-				if (x < left)
-					left = x;
+				if (x > low)
+					low = x;
+				if (x < high)
+					high = x;
 			}
-		}
+		}*/
 		for (UINT i = 0; i < vertexes.size(); i++)
 		{
 			if (vertexes[i].num%playersAmount != player && //если не своя
 				vertexes[i].isAvailable &&				   //если не захвачена
-				vertexes[i].logicalCoordinate.y == row  && //если на том же ряду
-				vertexes[i].logicalCoordinate.x>left &&    //если правее левой границы
-				vertexes[i].logicalCoordinate.x<right)     //если левее правой границы
+				vertexes[i].logicalCoordinate.y > theHighest  && //если ниже самой верхней
+				vertexes[i].logicalCoordinate.y < theLowest &&
+				vertexes[i].logicalCoordinate.x>theMostLeft &&    //если правее левой границы
+				vertexes[i].logicalCoordinate.x<theMostRight)     //если левее правой границы
 			{
-				vertexes[i].isAvailable = FALSE;
-				isFound = TRUE;
+				POINT physicalCoordinate = *logicalToPhysical[vertexes[i].logicalCoordinate.x][vertexes[i].logicalCoordinate.y];
+				HRGN pointRgn = CreateEllipticRgn(physicalCoordinate.x - 1, physicalCoordinate.y - 1, physicalCoordinate.x + 1, physicalCoordinate.y + 1);
+				//HRGN combinedRgn = pointRgn;
+				if (CombineRgn(polygonRgn, polygonRgn, pointRgn, RGN_AND) != NULLREGION)
+				{
+					vertexes[i].isAvailable = FALSE;
+					isFound = TRUE;
+				}
 			}
 		}
-	}
+	//}
 	return isFound;
 }
 
@@ -643,8 +668,8 @@ BOOLEAN FindClosedArea()
 	int player = moveNum%playersAmount;
 	PVERTEX lastPlacedVertexPtr = &vertexes[moveNum];
 	//std::vector<std::wstring> cycles;
-	std::vector<std::vector<UINT>> cyclesFound;
-	FindCycles(lastPlacedVertexPtr, lastPlacedVertexPtr, new std::vector<UINT>, &cyclesFound, 0);
+	vector<vector<UINT>> cyclesFound;
+	FindCycles(lastPlacedVertexPtr, lastPlacedVertexPtr, new vector<UINT>, &cyclesFound, 0);
 	for (UINT i = 0; i < cyclesFound.size(); i++)
 	{
 		if (cyclesFound[i].size()<5)
@@ -661,7 +686,7 @@ BOOLEAN FindClosedArea()
 		{
 			for (UINT i = 0; i < cyclesFound.size(); i++)
 			{
-				if (!isWithOtherPlayersDots(&cyclesFound[i]))
+				if (!FindOtherPlayersDots(&cyclesFound[i]))
 				{
 					cyclesFound.erase(cyclesFound.begin() + i);
 				}
@@ -735,20 +760,28 @@ VOID DrawClosedAreas(HWND hWnd)
 	{
 		INT player = closedAreas[i][0] % playersAmount;
 		SetPlayerColors(player);
+		SelectObject(hdc, GetStockObject(NULL_BRUSH));
+		POINT* polygonPoints;
+		polygonPoints = (POINT*)malloc(sizeof(POINT)*(closedAreas[i].size()-1));
 		for (UINT j = 0; j < closedAreas[i].size()-1; j++)
 		{
 			POINT fromLogical = vertexes[closedAreas[i][j]].logicalCoordinate;
-			POINT toLogical = vertexes[closedAreas[i][j+1]].logicalCoordinate;
-			PPOINT fromPhysical = logicalToPhysical[fromLogical.x][fromLogical.y];
-			PPOINT toPhysical = logicalToPhysical[toLogical.x][toLogical.y];
+			//POINT toLogical = vertexes[closedAreas[i][j+1]].logicalCoordinate;
+			POINT fromPhysical = *logicalToPhysical[fromLogical.x][fromLogical.y];
+			//POINT toPhysical = *logicalToPhysical[toLogical.x][toLogical.y];
+			polygonPoints[j] = fromPhysical;
 			
-			MoveToEx(hdc, fromPhysical->x, fromPhysical->y, NULL);
-			LineTo(hdc, toPhysical->x, toPhysical->y);
+			//HRGN polygon = CreatePolygonRgn(polygonPoints, closedAreas[i].size() - 1, WINDING);
+			/*MoveToEx(hdc, fromPhysical->x, fromPhysical->y, NULL);
+			LineTo(hdc, toPhysical->x, toPhysical->y);*/
 		}
+		Polygon(hdc, polygonPoints, closedAreas[i].size() - 1);
 	}
 	//
-	SelectObject(hdc, originalPen);
-	SelectObject(hdc, originalBrush);
+	if (originalPen != NULL)
+		SelectObject(hdc, originalPen);
+	if (originalBrush != NULL)
+		SelectObject(hdc, originalBrush);
 	ReleaseDC(hWnd, hdc);
 }
 
@@ -806,9 +839,10 @@ VOID DrawDots()
 			}
 		}
 	}
-	SelectObject(hdc, originalPen);
-	SelectObject(hdc, originalBrush);
-
+	if (originalPen != NULL)
+		SelectObject(hdc, originalPen);
+	if (originalBrush != NULL)
+		SelectObject(hdc, originalBrush);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
