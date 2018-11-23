@@ -11,10 +11,23 @@
 
 #define MAX_LOADSTRING 100
 #define MAX_CYCLESTRING 50
+#define MAX_PLAYERS_AMOUNT 3
 #define VERTEX_NEIGHBORS_AMOUNT 8
+#define MIN_SIZE 0
+#define MIN_CELL_SIZE 15
+#define MIN_PEN_WIDTH 2
+#define MIN_FIELD_WIDTH 30
+#define MIN_FIELD_HEIGHT 20
+#define MEDIUM_SIZE 1
 #define MEDIUM_CELL_SIZE 20
+#define MEDIUM_PEN_WIDTH 3
 #define MEDIUM_FIELD_WIDTH 40
 #define MEDIUM_FIELD_HEIGHT 25
+#define MAX_SIZE 2
+#define MAX_CELL_SIZE 25
+#define MAX_PEN_WIDTH 5
+#define MAX_FIELD_WIDTH 50
+#define MAX_FIELD_HEIGHT 30
 #define EMPTY_POS 255
 #define FIRST_PLAYER 0
 #define SECOND_PLAYER 1
@@ -28,10 +41,12 @@
 #define NOTEBOOK_COLORS 1
 #define NOTEBOOK_PEN RGB(0,0,200)
 #define NOTEBOOK_BRUSH RGB(250,250,250)
-#define NOTEBOOK_FIRST_DOT_PEN RGB(150, 10, 10)
-#define NOTEBOOK_SECOND_DOT_PEN RGB(10,10,150)
-#define NOTEBOOK_FIRST_DOT_BRUSH RGB(230, 0, 5)
-#define NOTEBOOK_SECOND_DOT_BRUSH RGB(5,0,230)
+#define NOTEBOOK_FIRST_DOT_PEN RGB(230, 5, 5)
+#define NOTEBOOK_SECOND_DOT_PEN RGB(5,5,230)
+#define NOTEBOOK_THIRD_DOT_PEN RGB(5,230,5)
+#define NOTEBOOK_FIRST_DOT_BRUSH RGB(150, 10, 10)
+#define NOTEBOOK_SECOND_DOT_BRUSH RGB(10,10,150)
+#define NOTEBOOK_THIRD_DOT_BRUSH RGB(10,150,10)
 
 
 // √лобальные переменные:
@@ -42,8 +57,9 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // им€ класса главного окна
 PAINTSTRUCT ps;
 HDC hdc;
 HBITMAP hBmpBackground;
-BITMAP bmpBackground;
-HDC memDC;
+//BITMAP bmpBackground;
+//HDC memDC;
+HBITMAP oldBmp;
 
 typedef struct DOT {
 	BYTE state;
@@ -69,7 +85,8 @@ typedef struct EDGE {
 	BOOLEAN ofClosedArea = FALSE;
 } EDGE;
 
-INT cellSize = MEDIUM_CELL_SIZE, radius = cellSize/4;
+BYTE sizeMode = MEDIUM_SIZE;
+INT cellSize = MEDIUM_CELL_SIZE, radius = cellSize/3, penWidth = MEDIUM_PEN_WIDTH;
 INT fieldWidth = MEDIUM_FIELD_WIDTH, fieldHeight = MEDIUM_FIELD_HEIGHT;
 std::vector<std::vector<PPOINT>> logicalToPhysical;
 std::vector<std::vector<PDOT>> dots;
@@ -169,6 +186,85 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+VOID FitSize(PRECT windowRect)
+{
+	INT minWidthforMAX_SIZE = (MAX_FIELD_WIDTH)*MAX_CELL_SIZE;
+	INT minHeightforMAX_SIZE = (MAX_FIELD_HEIGHT + 2)*MAX_CELL_SIZE;
+	INT minWidthforMEDIUM_SIZE = (MEDIUM_FIELD_WIDTH + 1)*MEDIUM_CELL_SIZE;
+	INT minHeightforMEDIUM_SIZE = (MEDIUM_FIELD_HEIGHT + 3)*MEDIUM_CELL_SIZE;
+	INT minWidthforMIN_SIZE = (MIN_FIELD_WIDTH + 1)*MIN_CELL_SIZE;
+	INT minHeightforMIN_SIZE = (MIN_FIELD_HEIGHT + 4)*MIN_CELL_SIZE;
+	INT windowWidth = windowRect->right - windowRect->left;
+	INT windowHeight = windowRect->bottom - windowRect->top;
+	if (moveNum == 0)
+	{
+		if (windowWidth >= minWidthforMAX_SIZE && windowHeight >= minHeightforMAX_SIZE)
+		{
+			sizeMode = MAX_SIZE;
+		}
+		else if (windowWidth >= minWidthforMEDIUM_SIZE && windowHeight >= minHeightforMEDIUM_SIZE)
+		{
+			sizeMode = MEDIUM_SIZE;
+		}
+		else //if (windowWidth >= minWidthforMIN_SIZE && windowHeight >= minHeightforMIN_SIZE)
+		{
+			sizeMode = MIN_SIZE;
+		}
+
+		switch (sizeMode)
+		{
+		case MIN_SIZE:
+			{
+				cellSize = MIN_CELL_SIZE;
+				fieldWidth = MIN_FIELD_WIDTH;
+				fieldHeight = MIN_FIELD_HEIGHT;
+				penWidth = MIN_PEN_WIDTH;
+			}
+			break;
+		case MEDIUM_SIZE:
+			{
+				cellSize = MEDIUM_CELL_SIZE;
+				fieldWidth = MEDIUM_FIELD_WIDTH;
+				fieldHeight = MEDIUM_FIELD_HEIGHT;
+				penWidth = MEDIUM_PEN_WIDTH;
+			}
+			break;
+		case MAX_SIZE:
+			{
+				cellSize = MAX_CELL_SIZE;
+				fieldWidth = MAX_FIELD_WIDTH;
+				fieldHeight = MAX_FIELD_HEIGHT;
+				penWidth = MAX_PEN_WIDTH;
+			}
+			break;
+		}
+	}
+	INT minWidth = minWidthforMIN_SIZE, minHeight = minHeightforMIN_SIZE;
+	switch (sizeMode)
+	{
+	case MEDIUM_SIZE:
+		{
+			minWidth = minWidthforMEDIUM_SIZE;
+			minHeight = minHeightforMEDIUM_SIZE;
+		}
+		break;
+	case MAX_SIZE:
+		{
+			minWidth = minWidthforMAX_SIZE;
+			minHeight = minHeightforMAX_SIZE;
+		}
+		break;
+	}
+	if (windowWidth < minWidth)
+	{
+		windowRect->right = windowRect->left + minWidth;
+	}
+	if (windowHeight < minHeight)
+	{
+		windowRect->bottom = windowRect->top + minHeight;
+	}
+}
+
 BOOL LoadBackgroundImage(HWND hWnd)
 {
 	/*WCHAR wsImagePath[MAX_PATH];
@@ -179,17 +275,21 @@ BOOL LoadBackgroundImage(HWND hWnd)
 	wcscpy_s(pwcLastSlash, 20, L"\\images\\desktop.bmp");*/
 	hBmpBackground = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP1));
 	//hBmpBackground = (HBITMAP)LoadImageW(NULL, wsImagePath, IMAGE_BITMAP, windowWidth, windowHeight, LR_LOADFROMFILE | LR_LOADTRANSPARENT);
-	GetObjectW(hBmpBackground, sizeof(bmpBackground), &bmpBackground);
-	hdc = GetDC(hWnd);
-	memDC = CreateCompatibleDC(hdc);
-	SelectObject(memDC, hBmpBackground);
-	ReleaseDC(hWnd, hdc);
+	//GetObjectW(hBmpBackground, sizeof(bmpBackground), &bmpBackground);
+	/*hdc = GetDC(hWnd);
+	
+	ReleaseDC(hWnd, hdc);*/
 	return TRUE;
 }
 
-VOID ShowBackground(int x, int y)
+VOID ShowBackground(HWND hWnd)
 {
-	BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
+	HDC memDC = CreateCompatibleDC(hdc);
+	oldBmp = (HBITMAP)SelectObject(memDC, hBmpBackground);
+	BitBlt(hdc, 0, 0, windowWidth, windowHeight, memDC, 0, 0, SRCCOPY);
+	SelectObject(memDC, oldBmp);
+	DeleteDC(memDC);
+	//BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
 }
 
 VOID LineField(int fieldWidth, int fieldHeight)
@@ -285,6 +385,8 @@ VOID FindPhysicalCoordinates()
 	}
 }
 
+VOID SetPlayerColors(UINT player);
+
 BOOLEAN IsOnField(int x, int y)
 {
 	INT marginLR = (windowWidth - fieldWidth*cellSize) / 2,
@@ -311,12 +413,13 @@ POINT GetClosestDotPos(int x, int y)
 		return dotOver;
 }
 
-VOID HighliteDot(POINT dot)
+VOID HighliteDot(HWND hWnd, POINT dot)
 {
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+	SetPlayerColors(moveNum%playersAmount);
 	SelectObject(hdc, GetStockObject(NULL_BRUSH));
-	switch (moveNum%playersAmount)
+	/*switch (moveNum%playersAmount)
 	{
 	case FIRST_PLAYER:
 		{
@@ -352,10 +455,11 @@ VOID HighliteDot(POINT dot)
 			}
 		}
 		break;
-	}
+	}*/
 	Ellipse(hdc, dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
 	SelectObject(hdc, originalPen);
 	SelectObject(hdc, originalBrush);
+	//ReleaseDC(hWnd, hdc);
 }
 
 PDOT GetClosestDot(int x, int y)
@@ -592,7 +696,7 @@ VOID SetPlayerColors(UINT player)
 		break;
 		case NOTEBOOK_COLORS:
 		{
-			HPEN playersPen = CreatePen(PS_SOLID, 5, NOTEBOOK_FIRST_DOT_PEN);
+			HPEN playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FIRST_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
 		}
@@ -612,7 +716,7 @@ VOID SetPlayerColors(UINT player)
 		break;
 		case NOTEBOOK_COLORS:
 		{
-			HPEN playersPen = CreatePen(PS_SOLID, 5, NOTEBOOK_SECOND_DOT_PEN);
+			HPEN playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_SECOND_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
 		}
@@ -623,7 +727,7 @@ VOID SetPlayerColors(UINT player)
 	}
 }
 
-VOID DrawClosedAreas()
+VOID DrawClosedAreas(HWND hWnd)
 {
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
@@ -642,8 +746,10 @@ VOID DrawClosedAreas()
 			LineTo(hdc, toPhysical->x, toPhysical->y);
 		}
 	}
+	//
 	SelectObject(hdc, originalPen);
 	SelectObject(hdc, originalBrush);
+	ReleaseDC(hWnd, hdc);
 }
 
 VOID AddVertex(int num, int xLogical, int yLogical)
@@ -702,6 +808,7 @@ VOID DrawDots()
 	}
 	SelectObject(hdc, originalPen);
 	SelectObject(hdc, originalBrush);
+
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -733,16 +840,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         { 
 			hdc = BeginPaint(hWnd, &ps);
-			ShowBackground(windowWidth, windowHeight);
+			ShowBackground(hWnd);
 			LineField(fieldWidth*cellSize, fieldHeight*cellSize);
-			HighliteDot(dotOver);
-			DrawDots();
-			DrawClosedAreas();
+			HighliteDot(hWnd, dotOver);
+			if (moveNum>0)
+				DrawDots();
+			if (moveNum > 5)
+				DrawClosedAreas(hWnd);
             EndPaint(hWnd, &ps);
         }
         break;
+	case WM_SIZING:
+	{
+		RECT* newWindowRect = (RECT *)(lParam);
+		FitSize(newWindowRect);
+	}
+	break;
 	case WM_SIZE:
 		{
+			if ((wParam == SIZE_MAXIMIZED || wParam == SIZE_RESTORED) && moveNum == 0)
+			{
+				RECT* windowRect = (RECT *)malloc(sizeof(RECT));
+				GetWindowRect(hWnd, windowRect);
+				FitSize(windowRect);
+			}
 			windowWidth = LOWORD(lParam);
 			windowHeight = HIWORD(lParam);
 			FindPhysicalCoordinates();
@@ -753,9 +874,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:
 		{
 			//hdc = BeginPaint(hWnd, &ps);
-			HRGN rect1 = CreateRectRgn(dotOver.x - radius, dotOver.y - radius, dotOver.x + radius, dotOver.y + radius);
+			HRGN rect1 = CreateRectRgn(dotOver.x - (radius+3), dotOver.y - (radius+3), dotOver.x + (radius+3), dotOver.y + (radius+3));
 			dotOver = GetClosestDotPos(LOWORD(lParam), HIWORD(lParam));
-			HRGN rect2 = CreateRectRgn(dotOver.x - radius, dotOver.y - radius, dotOver.x + radius, dotOver.y + radius);
+			HRGN rect2 = CreateRectRgn(dotOver.x - (radius + 3), dotOver.y - (radius + 3), dotOver.x + (radius + 3), dotOver.y + (radius + 3));
 			HRGN updateRgn = rect1;
 			CombineRgn(updateRgn, rect1, rect2, RGN_OR);
 			InvalidateRgn(hWnd, updateRgn, TRUE);
