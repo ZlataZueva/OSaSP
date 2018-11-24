@@ -148,31 +148,29 @@ INT OnMouseMove(HWND hWnd, LPARAM lParam)
 {
 	POINT dot = Drawing::dotOver;
 	INT radius = Drawing::radius + Drawing::penWidth;
-	HRGN prevDotRgn = CreateRectRgn(dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
+	HRGN prevDotRgn = CreateEllipticRgn(dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
 	Drawing::dotOver = Drawing::GetClosestDotPos(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-	HRGN newDotRgn = CreateRectRgn(Drawing::dotOver.x - radius, Drawing::dotOver.y - radius, Drawing::dotOver.x + radius, Drawing::dotOver.y + radius);
+	HRGN newDotRgn = CreateEllipticRgn(Drawing::dotOver.x - radius, Drawing::dotOver.y - radius, Drawing::dotOver.x + radius, Drawing::dotOver.y + radius);
 	HRGN updateRgn = prevDotRgn;
 	CombineRgn(updateRgn, prevDotRgn, newDotRgn, RGN_OR);
 	InvalidateRgn(hWnd, updateRgn, TRUE);	
 	UpdateWindow(hWnd);
 	DeleteRgn(prevDotRgn);
 	DeleteRgn(newDotRgn);
-	//DeleteRgn(updateRgn);
+	DeleteRgn(updateRgn);
 	return 0;
 }
 
 INT OnPaint(HWND hWnd)
 {
-	BOOL bErase = TRUE;
-	if (GetUpdateRgn(hWnd, NULL, bErase) != NULLREGION)
+	if (GetUpdateRgn(hWnd, NULL, TRUE) != NULLREGION)
 	{
-		HDC hdc = BeginPaint(hWnd, &(Drawing::ps));
-		if (bErase)
-			Drawing::ShowBackground(hWnd);
-		Drawing::LineField(hWnd);
-		Drawing::HighliteDot(hWnd, GameLogic::moveNum % GameLogic::playersAmount, Drawing::dotOver);
+		Drawing::hdc = BeginPaint(hWnd, &(Drawing::ps));
+		Drawing::ShowBackground();
+		Drawing::LineField();
+		Drawing::HighliteDot(GameLogic::moveNum % GameLogic::playersAmount, Drawing::dotOver);
 		if (GameLogic::moveNum > 0)
-			Drawing::DrawDots(hWnd, GameLogic::playersAmount);
+			Drawing::DrawDots(GameLogic::playersAmount);
 		if (GameLogic::moveNum > GameLogic::playersAmount*3)
 		{
 			vector<POINT> vertexesCoordinates;
@@ -180,7 +178,7 @@ INT OnPaint(HWND hWnd)
 			{
 				vertexesCoordinates.push_back(gameLogic->vertexes[i].logicalCoordinate);
 			}
-			Drawing::DrawClosedAreas(hWnd, &(gameLogic->closedAreas), &vertexesCoordinates, GameLogic::playersAmount);
+			Drawing::DrawClosedAreas(&(gameLogic->closedAreas), &vertexesCoordinates, GameLogic::playersAmount);
 		}
 		EndPaint(hWnd, &(Drawing::ps));
 	}

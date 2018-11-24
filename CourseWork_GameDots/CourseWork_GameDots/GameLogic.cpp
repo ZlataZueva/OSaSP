@@ -59,7 +59,7 @@ vector<vector<UINT>> ExcludeIncludedInOther(vector<vector<UINT>> *cyclesFound)
 			{
 				for (UINT num = 0; num < cyclesTempSorted[i].size()-2; num++)
 				{
-					if (cyclesTempSorted[i][num] != differentVector[num])
+					if (binary_search(differentVector.begin(), differentVector.end(),cyclesTempSorted[i][num]))
 						isPartOfAnother = FALSE;
 				}
 			}

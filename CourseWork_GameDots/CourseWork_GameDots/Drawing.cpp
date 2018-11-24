@@ -6,7 +6,7 @@
 using namespace std;
 
 PAINTSTRUCT Drawing::ps;
-//HDC Drawing::hdc;
+HDC Drawing::hdc;
 HBITMAP Drawing::hBmpBackground;
 //BITMAP bmpBackground;
 //HDC memDC;
@@ -30,9 +30,9 @@ Drawing::Drawing()
 {
 }
 
-VOID Drawing::DrawClosedAreas(HWND hWnd, vector<vector<UINT>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, UINT playersAmount)
+VOID Drawing::DrawClosedAreas(vector<vector<UINT>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, UINT playersAmount)
 {
-	HDC hdc = GetDC(hWnd);
+	//HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	for (UINT i = 0; i < closedAreas->size(); i++)
@@ -61,12 +61,12 @@ VOID Drawing::DrawClosedAreas(HWND hWnd, vector<vector<UINT>> *closedAreas,vecto
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
 	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
-	ReleaseDC(hWnd, hdc);
+	//ReleaseDC(hWnd, hdc);
 }
 
-VOID Drawing::DrawDots(HWND hWnd, UINT playersAmount)
+VOID Drawing::DrawDots(UINT playersAmount)
 {
-	HDC hdc = GetDC(hWnd);
+	//HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	for (UINT player = FIRST_PLAYER; player < FIRST_PLAYER + playersAmount; player++)
@@ -94,7 +94,7 @@ VOID Drawing::DrawDots(HWND hWnd, UINT playersAmount)
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
 	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
-	ReleaseDC(hWnd, hdc);
+	//ReleaseDC(hWnd, hdc);
 }
 
 VOID Drawing::FindPhysicalCoordinates(INT moveNum)
@@ -252,9 +252,9 @@ POINT Drawing::GetClosestDotPos(int x, int y)
 		return dotOver;
 }
 
-VOID Drawing::HighliteDot(HWND hWnd,INT player, POINT dot)
+VOID Drawing::HighliteDot(INT player, POINT dot)
 {
-	HDC hdc = GetDC(hWnd);
+	//HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	SetPlayerColors(hdc, player);
@@ -302,7 +302,7 @@ VOID Drawing::HighliteDot(HWND hWnd,INT player, POINT dot)
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
 	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
-	ReleaseDC(hWnd, hdc);
+	//ReleaseDC(hWnd, hdc);
 }
 
 VOID Drawing::InitializeDotsMatrix()
@@ -336,9 +336,9 @@ BOOLEAN Drawing::IsOnField(INT x, INT y)
 	return (x > marginLR && x<(marginLR + fieldWidth*cellSize) && y>marginTB && y < (marginTB + fieldHeight*cellSize));
 }
 
-VOID Drawing::LineField(HWND hWnd)
+VOID Drawing::LineField()
 {
-	HDC hdc = GetDC(hWnd);
+	//HDC hdc = GetDC(hWnd);
 	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
@@ -383,7 +383,7 @@ VOID Drawing::LineField(HWND hWnd)
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
 	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
-	ReleaseDC(hWnd, hdc);
+	//ReleaseDC(hWnd, hdc);
 }
 
 BOOL Drawing::LoadBackgroundImage(HINSTANCE hInst)
@@ -474,15 +474,16 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 	//ReleaseDC(hWnd, hdc);
 }
 
-VOID Drawing::ShowBackground(HWND hWnd)
+VOID Drawing::ShowBackground()
 {
-	HDC hdc = GetDC(hWnd);
+	//HDC hdc = GetDC(hWnd);
 	HDC memDC = CreateCompatibleDC(hdc);
 	originalBmp = (HBITMAP)SelectObject(memDC, hBmpBackground);
 	BitBlt(hdc, 0, 0, windowWidth, windowHeight, memDC, 0, 0, SRCCOPY);
-	SelectObject(memDC, originalBmp);
+	if (originalBmp!=NULL)
+		SelectObject(memDC, originalBmp);
 	DeleteDC(memDC);
-	ReleaseDC(hWnd, hdc);
+	//ReleaseDC(hWnd, hdc);
 	//BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
 }
 
