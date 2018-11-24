@@ -6,11 +6,12 @@
 using namespace std;
 
 PAINTSTRUCT Drawing::ps;
-HDC Drawing::hdc;
+//HDC Drawing::hdc;
 HBITMAP Drawing::hBmpBackground;
 //BITMAP bmpBackground;
 //HDC memDC;
 HBITMAP Drawing::originalBmp;
+HPEN playersPen;
 
 BYTE Drawing::sizeMode = MEDIUM_SIZE;
 INT Drawing::cellSize = MEDIUM_CELL_SIZE;
@@ -31,44 +32,46 @@ Drawing::Drawing()
 
 VOID Drawing::DrawClosedAreas(HWND hWnd, vector<vector<UINT>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, UINT playersAmount)
 {
+	HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	for (UINT i = 0; i < closedAreas->size(); i++)
 	{
 		INT player = (*closedAreas)[i][0] % playersAmount;
-		SetPlayerColors(player);
+		SetPlayerColors(hdc, player);
 		SelectObject(hdc, GetStockObject(NULL_BRUSH));
-		POINT* polygonPoints;
-		polygonPoints = (POINT*)malloc(sizeof(POINT)*(closedAreas[i].size() - 1));
-		for (UINT j = 0; j < closedAreas[i].size() - 1; j++)
+		POINT* polygonPoints = new POINT[(*closedAreas)[i].size()-1];// = (POINT*)malloc(sizeof(POINT)*(closedAreas[i].size()));
+		for (UINT j = 0; j < (*closedAreas)[i].size() - 1; j++)
 		{
-			POINT fromLogical =(*pointsLogicalCoordinates)[(*closedAreas)[i][j]];
+			POINT logicalCoordinate =(*pointsLogicalCoordinates)[(*closedAreas)[i][j]];
 			//POINT toLogical = vertexes[closedAreas[i][j+1]].logicalCoordinate;
-			POINT fromPhysical = *logicalToPhysical[fromLogical.x][fromLogical.y];
+			POINT physicalCoordinate = *logicalToPhysical[logicalCoordinate.x][logicalCoordinate.y];
 			//POINT toPhysical = *logicalToPhysical[toLogical.x][toLogical.y];
-			polygonPoints[j] = fromPhysical;
-
+			polygonPoints[j] = physicalCoordinate;
 			//HRGN polygon = CreatePolygonRgn(polygonPoints, closedAreas[i].size() - 1, WINDING);
 			/*MoveToEx(hdc, fromPhysical->x, fromPhysical->y, NULL);
 			LineTo(hdc, toPhysical->x, toPhysical->y);*/
 		}
-		Polygon(hdc, polygonPoints, closedAreas[i].size() - 1);
+		Polygon(hdc, polygonPoints, (*closedAreas)[i].size() - 1);
+		delete[] polygonPoints;// free(polygonPoints);
 	}
 	//
 	if (originalPen != NULL)
 		SelectObject(hdc, originalPen);
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
+	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
 	ReleaseDC(hWnd, hdc);
 }
 
-VOID Drawing::DrawDots(UINT playersAmount)
+VOID Drawing::DrawDots(HWND hWnd, UINT playersAmount)
 {
+	HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	for (UINT player = FIRST_PLAYER; player < FIRST_PLAYER + playersAmount; player++)
 	{
-		SetPlayerColors(player);
+		SetPlayerColors(hdc, player);
 		/*for (UINT i = player; i < vertexes.size(); i += playersAmount)
 		{
 		POINT dotPos = *logicalToPhysical[vertexes[i].logicalCoordinate.x][vertexes[i].logicalCoordinate.y];
@@ -90,6 +93,8 @@ VOID Drawing::DrawDots(UINT playersAmount)
 		SelectObject(hdc, originalPen);
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
+	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
+	ReleaseDC(hWnd, hdc);
 }
 
 VOID Drawing::FindPhysicalCoordinates(INT moveNum)
@@ -99,11 +104,11 @@ VOID Drawing::FindPhysicalCoordinates(INT moveNum)
 		vector<vector<PPOINT>> physicalCoordinatesMatrix(fieldHeight);
 		for (int i = 0; i < fieldHeight; i++)
 		{
-			vector<PPOINT> physicalCoordinatesArr(fieldWidth, (PPOINT)malloc(sizeof(POINT)));
-			/*for (int j = 0; j < fieldWidth; j++)
+			vector<PPOINT> physicalCoordinatesArr(fieldWidth);
+			for (int j = 0; j < fieldWidth; j++)
 			{
-				physicalCoordinatesArr[j] = ;
-			}*/
+				physicalCoordinatesArr[j] = new POINT();//(PPOINT)malloc(sizeof(POINT));
+			}
 			physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
 		}
 		logicalToPhysical = physicalCoordinatesMatrix;
@@ -232,7 +237,7 @@ POINT Drawing::GetClosestDotPos(int x, int y)
 {
 	if (IsOnField(x, y))
 	{
-		POINT dot = dot = *(logicalToPhysical)[0][0];
+		POINT dot = *(logicalToPhysical)[0][0];
 		while (abs(dot.x - x) >= cellSize / 2 + 1)
 		{
 			dot.x += cellSize;
@@ -247,11 +252,12 @@ POINT Drawing::GetClosestDotPos(int x, int y)
 		return dotOver;
 }
 
-VOID Drawing::HighliteDot(HWND hWnd,INT player)
+VOID Drawing::HighliteDot(HWND hWnd,INT player, POINT dot)
 {
+	HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetPlayerColors(player);
+	SetPlayerColors(hdc, player);
 	SelectObject(hdc, GetStockObject(NULL_BRUSH));
 	/*switch (moveNum%playersAmount)
 	{
@@ -290,12 +296,13 @@ VOID Drawing::HighliteDot(HWND hWnd,INT player)
 	}
 	break;
 	}*/
-	Ellipse(hdc, dotOver.x - radius, dotOver.y - radius, dotOver.x + radius, dotOver.y + radius);
+	Ellipse(hdc, dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
 	if (originalPen != NULL)
 		SelectObject(hdc, originalPen);
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
-	//ReleaseDC(hWnd, hdc);
+	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
+	ReleaseDC(hWnd, hdc);
 }
 
 VOID Drawing::InitializeDotsMatrix()
@@ -329,8 +336,9 @@ BOOLEAN Drawing::IsOnField(INT x, INT y)
 	return (x > marginLR && x<(marginLR + fieldWidth*cellSize) && y>marginTB && y < (marginTB + fieldHeight*cellSize));
 }
 
-VOID Drawing::LineField()
+VOID Drawing::LineField(HWND hWnd)
 {
+	HDC hdc = GetDC(hWnd);
 	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
@@ -374,6 +382,8 @@ VOID Drawing::LineField()
 		SelectObject(hdc, originalPen);
 	if (originalBrush != NULL)
 		SelectObject(hdc, originalBrush);
+	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
+	ReleaseDC(hWnd, hdc);
 }
 
 BOOL Drawing::LoadBackgroundImage(HINSTANCE hInst)
@@ -394,8 +404,9 @@ BOOL Drawing::LoadBackgroundImage(HINSTANCE hInst)
 }
 
 
-VOID Drawing::SetPlayerColors(UINT player)
+VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 {
+	//HDC hdc = GetDC(hWnd);
 	switch (player)
 	{
 	case FIRST_PLAYER:
@@ -411,7 +422,7 @@ VOID Drawing::SetPlayerColors(UINT player)
 		break;
 		case NOTEBOOK_COLORS:
 		{
-			HPEN playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FIRST_DOT_PEN);
+			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FIRST_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
 		}
@@ -431,7 +442,7 @@ VOID Drawing::SetPlayerColors(UINT player)
 		break;
 		case NOTEBOOK_COLORS:
 		{
-			HPEN playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_SECOND_DOT_PEN);
+			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_SECOND_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
 		}
@@ -439,16 +450,39 @@ VOID Drawing::SetPlayerColors(UINT player)
 		}
 	}
 	break;
+	case THIRD_PLAYER:
+	{
+		switch (colorMode)
+		{
+		case STANDARD_COLORS:
+		{
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
+		}
+		break;
+		case NOTEBOOK_COLORS:
+		{
+			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_THIRD_DOT_PEN);
+			SelectObject(hdc, playersPen);
+			SetDCBrushColor(hdc, NOTEBOOK_THIRD_DOT_BRUSH);
+		}
+		break;
+		}
 	}
+	break;
+	}
+	//ReleaseDC(hWnd, hdc);
 }
 
 VOID Drawing::ShowBackground(HWND hWnd)
 {
+	HDC hdc = GetDC(hWnd);
 	HDC memDC = CreateCompatibleDC(hdc);
 	originalBmp = (HBITMAP)SelectObject(memDC, hBmpBackground);
 	BitBlt(hdc, 0, 0, windowWidth, windowHeight, memDC, 0, 0, SRCCOPY);
 	SelectObject(memDC, originalBmp);
 	DeleteDC(memDC);
+	ReleaseDC(hWnd, hdc);
 	//BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
 }
 

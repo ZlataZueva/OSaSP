@@ -16,7 +16,7 @@ VOID GameLogic::AddVertex(int num, int xLogical, int yLogical, vector<vector<PPO
 	newVertex.logicalCoordinate.x = xLogical;
 	newVertex.logicalCoordinate.y = yLogical;
 	vertexes.push_back(newVertex);
-	if (num > 5)
+	if (num >= playersAmount*3)
 	{
 		FindClosedArea(physicalCoordinates);
 	}
@@ -82,15 +82,23 @@ BOOLEAN GameLogic::FindClosedArea(vector<vector<PPOINT>> *physicalCoordinates)
 {
 	BOOLEAN isFound = FALSE;
 	int player = moveNum%playersAmount;
-	PVERTEX lastPlacedVertexPtr = &(this->vertexes[moveNum]);
+	PVERTEX lastPlacedVertexPtr = &(vertexes[moveNum]);
 	//std::vector<std::wstring> cycles;
 	vector<vector<UINT>> cyclesFound;
-	FindCycles(lastPlacedVertexPtr, lastPlacedVertexPtr, new vector<UINT>, &cyclesFound, 0);
-	for (UINT i = 0; i < cyclesFound.size(); i++)
+	vector<UINT> firstCycle;// = new vector<UINT>(MAX_CYCLE_LENGTH);
+	FindCycles(lastPlacedVertexPtr, lastPlacedVertexPtr, &firstCycle, &cyclesFound, 0);
+	//delete(firstCycle);
+	UINT cycleNum = 0;
+	while (cycleNum < cyclesFound.size())
 	{
-		if (cyclesFound[i].size()<5)
+		if (cyclesFound[cycleNum].size()<5)
 		{
-			cyclesFound.erase(cyclesFound.begin() + i);
+			cyclesFound[cycleNum].clear();
+			cyclesFound.erase(cyclesFound.begin() + cycleNum);
+		}
+		else
+		{
+			cycleNum++;
 		}
 	}
 	//for (int i = player; i <= moveNum; i += playersAmount)
@@ -100,15 +108,17 @@ BOOLEAN GameLogic::FindClosedArea(vector<vector<PPOINT>> *physicalCoordinates)
 		cyclesFound = ExcludeIncludedInOther(&cyclesFound);
 		if (cyclesFound.size() > 0)
 		{
-			for (UINT i = 0; i < cyclesFound.size(); i++)
+			cycleNum = 0;
+			while (cycleNum < cyclesFound.size())
 			{
-				if (!FindOtherPlayersDots(&cyclesFound[i], physicalCoordinates))
+				if (!FindOtherPlayersDots(&cyclesFound[cycleNum], physicalCoordinates))
 				{
-					cyclesFound.erase(cyclesFound.begin() + i);
+					cyclesFound.erase(cyclesFound.begin() + cycleNum);
 				}
 				else
 				{
-					closedAreas.push_back(cyclesFound[i]);
+					closedAreas.push_back(cyclesFound[cycleNum]);
+					cycleNum++;
 				}
 			}
 			if (cyclesFound.size() > 0)
@@ -122,22 +132,14 @@ BOOLEAN GameLogic::FindClosedArea(vector<vector<PPOINT>> *physicalCoordinates)
 
 VOID GameLogic::FindCycles(PVERTEX lastPlaced, PVERTEX current, vector<UINT> *cycle, vector<vector<UINT>> *cyclesVector, UINT recursionDepth)
 {
-	//std::wstring newCycle = cycle + std::to_wstring(current->num);
-	//PWCHAR strCurrentNum = (PWCHAR)malloc(sizeof(WCHAR) * 5);
-	//_itow_s(current->num, strCurrentNum, sizeof(WCHAR) * 5, 10);
-	//INT newCycleSize = wcslen(cycle) + wcslen(strCurrentNum)+2;
-	//PWCHAR newCycle = (PWCHAR)malloc(sizeof(WCHAR)*newCycleSize);
-	//wcscpy_s(newCycle, newCycleSize, cycle);
-	//wcscat_s(newCycle, newCycleSize, strCurrentNum);
-	////free(strCurrentNum);
-	//strCurrentNum = NULL;
-	std::vector<UINT> newCycle = *cycle;
-	newCycle.push_back(current->num);
-
+	//vector<UINT>* newCycle = new vector<UINT>(*cycle);
+	//newCycle->push_back(current->num);
+	cycle->push_back(current->num);
+	//(*cycle)[recursionDepth] = current->num;
 	current->isAvailable = FALSE;
 	if (lastPlaced->num == current->num && recursionDepth > 2)
 	{
-		cyclesVector->push_back(newCycle);
+		cyclesVector->push_back(*cycle);
 	}
 	else if (lastPlaced->num != current->num || recursionDepth == 0)
 	{
@@ -150,19 +152,21 @@ VOID GameLogic::FindCycles(PVERTEX lastPlaced, PVERTEX current, vector<UINT> *cy
 				abs(vertexes[i].logicalCoordinate.y - current->logicalCoordinate.y) <= 1 &&
 				(vertexes[i].isAvailable || vertexes[i].num == lastPlaced->num))                                     //если еще не добавлена в цикл или последняя
 			{
-				FindCycles(lastPlaced, &vertexes[i], &newCycle, cyclesVector, recursionDepth + 1);
+				FindCycles(lastPlaced, &vertexes[i], cycle, cyclesVector, recursionDepth + 1);
 			}
 		}
 		//free(newCycle);
 		//newCycle = NULL;
-		newCycle.clear();
+		//cycle->pop_back();
 	}
 	else
 	{
 		/*free(newCycle);
 		newCycle = NULL;*/
-		newCycle.clear();
+		//cycle->pop_back();
 	}
+	//(*cycle)[recursionDepth] = 0;
+	cycle->pop_back();
 	current->isAvailable = TRUE;
 }
 
@@ -173,7 +177,7 @@ BOOLEAN GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<
 	INT theMostLeft = MAXINT, theMostRight = 0;
 	INT theHighest = MAXINT, theLowest = 0;
 	POINT *polygonPoints;
-	polygonPoints = (POINT*)malloc(sizeof(POINT)*(cycle->size() - 1));
+	polygonPoints = new POINT[cycle->size() - 1];//(POINT*)malloc(sizeof(POINT)*(cycle->size() - 1));
 	for (UINT i = 0; i < cycle->size() - 1; i++)
 	{
 		POINT logicalCoordinate = vertexes[(*cycle)[i]].logicalCoordinate;
@@ -206,8 +210,12 @@ BOOLEAN GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<
 				vertexes[i].isAvailable = FALSE;
 				isFound = TRUE;
 			}
+			DeleteObject((HGDIOBJ)(HRGN)(pointRgn));
 		}
 	}
+	DeleteObject((HGDIOBJ)(HRGN)(polygonRgn));
+	delete[] polygonPoints;
+	//free(polygonPoints);
 	return isFound;
 }
 

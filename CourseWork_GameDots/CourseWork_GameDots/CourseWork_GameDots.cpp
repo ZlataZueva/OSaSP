@@ -129,6 +129,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 INT OnCreate()
 {
 	//drawing = new Drawing();
+	//drawing->FindPhysicalCoordinates(0);
 	gameLogic = new GameLogic();
 	if (Drawing::LoadBackgroundImage(hInst))
 		return 0;
@@ -147,29 +148,32 @@ INT OnMouseMove(HWND hWnd, LPARAM lParam)
 {
 	POINT dot = Drawing::dotOver;
 	INT radius = Drawing::radius + Drawing::penWidth;
-	HRGN prevDotRgn = CreateEllipticRgn(dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
+	HRGN prevDotRgn = CreateRectRgn(dot.x - radius, dot.y - radius, dot.x + radius, dot.y + radius);
 	Drawing::dotOver = Drawing::GetClosestDotPos(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-	HRGN newDotRgn = CreateEllipticRgn(Drawing::dotOver.x - radius, Drawing::dotOver.y - radius, Drawing::dotOver.x + radius, Drawing::dotOver.y + radius);
+	HRGN newDotRgn = CreateRectRgn(Drawing::dotOver.x - radius, Drawing::dotOver.y - radius, Drawing::dotOver.x + radius, Drawing::dotOver.y + radius);
 	HRGN updateRgn = prevDotRgn;
 	CombineRgn(updateRgn, prevDotRgn, newDotRgn, RGN_OR);
-	InvalidateRgn(hWnd, updateRgn, TRUE);
+	InvalidateRgn(hWnd, updateRgn, TRUE);	
 	UpdateWindow(hWnd);
+	DeleteRgn(prevDotRgn);
+	DeleteRgn(newDotRgn);
+	//DeleteRgn(updateRgn);
 	return 0;
 }
 
 INT OnPaint(HWND hWnd)
 {
-	BOOL bErase;
-	if (GetUpdateRect(hWnd, NULL, bErase) != 0)
+	BOOL bErase = TRUE;
+	if (GetUpdateRgn(hWnd, NULL, bErase) != NULLREGION)
 	{
-		Drawing::hdc = BeginPaint(hWnd, &(Drawing::ps));
-		if (bErase == WM_ERASEBKGND)
+		HDC hdc = BeginPaint(hWnd, &(Drawing::ps));
+		if (bErase)
 			Drawing::ShowBackground(hWnd);
-		Drawing::LineField();
-		Drawing::HighliteDot(hWnd, GameLogic::moveNum % GameLogic::playersAmount);
+		Drawing::LineField(hWnd);
+		Drawing::HighliteDot(hWnd, GameLogic::moveNum % GameLogic::playersAmount, Drawing::dotOver);
 		if (GameLogic::moveNum > 0)
-			Drawing::DrawDots(GameLogic::playersAmount);
-		if (GameLogic::moveNum > 5)
+			Drawing::DrawDots(hWnd, GameLogic::playersAmount);
+		if (GameLogic::moveNum > GameLogic::playersAmount*3)
 		{
 			vector<POINT> vertexesCoordinates;
 			for (INT i = 0; i < gameLogic->vertexes.size(); i++)
@@ -190,6 +194,7 @@ INT OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
 		RECT* windowRect = (RECT *)malloc(sizeof(RECT));
 		GetWindowRect(hWnd, windowRect);
 		Drawing::FitSize(windowRect, GameLogic::moveNum);
+		Drawing::InitializeDotsMatrix();
 	}
 	Drawing::windowWidth = LOWORD(lParam);
 	Drawing::windowHeight = HIWORD(lParam);
