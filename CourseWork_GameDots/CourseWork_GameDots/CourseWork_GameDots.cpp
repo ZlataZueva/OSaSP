@@ -131,6 +131,7 @@ INT OnCreate()
 	//drawing = new Drawing();
 	//drawing->FindPhysicalCoordinates(0);
 	gameLogic = new GameLogic();
+	Drawing::InitializeLogFont();
 	if (Drawing::LoadBackgroundImage(hInst))
 		return 0;
 	return -1;
@@ -180,6 +181,7 @@ INT OnPaint(HWND hWnd)
 			}
 			Drawing::DrawClosedAreas(&(gameLogic->closedAreas), &vertexesCoordinates, GameLogic::playersAmount);
 		}
+		Drawing::ShowScores(gameLogic->capturedDotsAmounts);
 		EndPaint(hWnd, &(Drawing::ps));
 	}
 	return 0;
@@ -219,7 +221,6 @@ VOID PlaceDot(INT x, INT y)
 		{
 			dotClicked->state = (GameLogic::moveNum%GameLogic::playersAmount);
 			gameLogic->AddVertex(GameLogic::moveNum, dotClicked->logicalCoordinate.x, dotClicked->logicalCoordinate.y, &(Drawing::logicalToPhysical));
-			GameLogic::moveNum++;
 		}
 	}
 }

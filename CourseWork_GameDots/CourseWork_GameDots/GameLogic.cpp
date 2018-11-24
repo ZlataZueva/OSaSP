@@ -7,7 +7,16 @@
 using namespace std;
 
 INT GameLogic::moveNum = 0;
-INT GameLogic::playersAmount = 2;
+INT GameLogic::playersAmount = 3;
+
+GameLogic::GameLogic()
+{
+	capturedDotsAmounts = new vector<INT>(playersAmount);
+	for (INT i = 0; i < playersAmount; i++)
+	{
+		(*capturedDotsAmounts)[i] = 0;
+	}
+}
 
 VOID GameLogic::AddVertex(int num, int xLogical, int yLogical, vector<vector<PPOINT>> *physicalCoordinates)
 {
@@ -20,6 +29,7 @@ VOID GameLogic::AddVertex(int num, int xLogical, int yLogical, vector<vector<PPO
 	{
 		FindClosedArea(physicalCoordinates);
 	}
+	moveNum++;
 	//newVertex.isAvailable = TRUE;
 	//for (int )
 }
@@ -111,13 +121,15 @@ BOOLEAN GameLogic::FindClosedArea(vector<vector<PPOINT>> *physicalCoordinates)
 			cycleNum = 0;
 			while (cycleNum < cyclesFound.size())
 			{
-				if (!FindOtherPlayersDots(&cyclesFound[cycleNum], physicalCoordinates))
+				INT capturedDots = FindOtherPlayersDots(&cyclesFound[cycleNum], physicalCoordinates);
+				if (capturedDots==0)
 				{
 					cyclesFound.erase(cyclesFound.begin() + cycleNum);
 				}
 				else
 				{
 					closedAreas.push_back(cyclesFound[cycleNum]);
+					(*capturedDotsAmounts)[player] += capturedDots;
 					cycleNum++;
 				}
 			}
@@ -170,9 +182,9 @@ VOID GameLogic::FindCycles(PVERTEX lastPlaced, PVERTEX current, vector<UINT> *cy
 	current->isAvailable = TRUE;
 }
 
-BOOLEAN GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<PPOINT>> *physicalCoordinates)
+INT GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<PPOINT>> *physicalCoordinates)
 {
-	BOOLEAN isFound = FALSE;
+	INT count = 0;
 	INT player = vertexes[(*cycle)[0]].num%playersAmount;
 	INT theMostLeft = MAXINT, theMostRight = 0;
 	INT theHighest = MAXINT, theLowest = 0;
@@ -205,10 +217,10 @@ BOOLEAN GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<
 		{
 			POINT physicalCoordinate = *(*physicalCoordinates)[vertexes[i].logicalCoordinate.x][vertexes[i].logicalCoordinate.y];
 			HRGN pointRgn = CreateEllipticRgn(physicalCoordinate.x - 1, physicalCoordinate.y - 1, physicalCoordinate.x + 1, physicalCoordinate.y + 1);
-			if (CombineRgn(polygonRgn, polygonRgn, pointRgn, RGN_AND) != NULLREGION)
+			if (CombineRgn(pointRgn, polygonRgn, pointRgn, RGN_AND) != NULLREGION)
 			{
 				vertexes[i].isAvailable = FALSE;
-				isFound = TRUE;
+				count++;
 			}
 			DeleteObject((HGDIOBJ)(HRGN)(pointRgn));
 		}
@@ -216,13 +228,8 @@ BOOLEAN GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<
 	DeleteObject((HGDIOBJ)(HRGN)(polygonRgn));
 	delete[] polygonPoints;
 	//free(polygonPoints);
-	return isFound;
+	return count;
 }
-
-GameLogic::GameLogic()
-{
-}
-
 
 GameLogic::~GameLogic()
 {

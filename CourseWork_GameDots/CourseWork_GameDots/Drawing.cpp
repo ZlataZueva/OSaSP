@@ -12,7 +12,7 @@ HBITMAP Drawing::hBmpBackground;
 //HDC memDC;
 HBITMAP Drawing::originalBmp;
 HPEN playersPen;
-
+LOGFONT Drawing::logFont;
 BYTE Drawing::sizeMode = MEDIUM_SIZE;
 INT Drawing::cellSize = MEDIUM_CELL_SIZE;
 INT Drawing::radius = Drawing::cellSize / 3;
@@ -329,6 +329,24 @@ VOID Drawing::InitializeDotsMatrix()
 	//logicalToPhysical = physicalCoordinatesMatrix;
 }
 
+VOID Drawing::InitializeLogFont()
+{
+	logFont.lfHeight = cellSize;
+	logFont.lfWidth = 0;
+	logFont.lfEscapement = 0;
+	logFont.lfOrientation = 0;
+	logFont.lfWeight = FW_BOLD;
+	logFont.lfItalic = TRUE;
+	logFont.lfUnderline = FALSE;
+	logFont.lfStrikeOut = FALSE;
+	logFont.lfCharSet = DEFAULT_CHARSET;
+	logFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
+	logFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+	logFont.lfQuality = PROOF_QUALITY;
+	logFont.lfPitchAndFamily = VARIABLE_PITCH | FF_DECORATIVE;
+	wcscpy_s(logFont.lfFaceName, SCORE_FONTNAME);
+}
+
 BOOLEAN Drawing::IsOnField(INT x, INT y)
 {
 	INT marginLR = (windowWidth - fieldWidth*cellSize) / 2,
@@ -378,6 +396,14 @@ VOID Drawing::LineField()
 		y += cellSize;
 		//countVertical++;
 	}
+	//HPEN shadowPen = CreatePen(PS_SOLID, 7, SHADOW_COLOR);
+	////HBRUSH shadowBrush = CreateSolidBrush(SHADOW_COLOR);
+	////SelectObject(hdc, shadowBrush);
+	//SelectObject(hdc, shadowPen);
+	//MoveToEx(hdc, marginLR+4, marginTB + fieldHeight*cellSize + 4, NULL);
+	//LineTo(hdc, marginLR + fieldWidth*cellSize + 4, marginTB + fieldHeight*cellSize + 4);
+	//LineTo(hdc, marginLR + fieldWidth*cellSize + 4, marginTB+1);
+	//DeleteObject((HGDIOBJ)(HPEN)(shadowPen));
 	if (originalPen != NULL)
 		SelectObject(hdc, originalPen);
 	if (originalBrush != NULL)
@@ -425,6 +451,7 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FIRST_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
+			SetTextColor(hdc, NOTEBOOK_FIRST_DOT_BRUSH);
 		}
 		break;
 		}
@@ -445,6 +472,7 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_SECOND_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
+			SetTextColor(hdc, NOTEBOOK_SECOND_DOT_BRUSH);
 		}
 		break;
 		}
@@ -465,6 +493,7 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_THIRD_DOT_PEN);
 			SelectObject(hdc, playersPen);
 			SetDCBrushColor(hdc, NOTEBOOK_THIRD_DOT_BRUSH);
+			SetTextColor(hdc, NOTEBOOK_THIRD_DOT_BRUSH);
 		}
 		break;
 		}
@@ -485,6 +514,45 @@ VOID Drawing::ShowBackground()
 	DeleteDC(memDC);
 	//ReleaseDC(hWnd, hdc);
 	//BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
+}
+
+VOID Drawing::ShowScores(vector<INT> *scores)
+{
+	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
+	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+	HFONT hFont = CreateFontIndirectW(&logFont);
+	HGDIOBJ originalFont = SelectObject(hdc, hFont);
+	for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + scores->size(); player++)
+	{
+		
+		RECT textRect;
+		INT textWidth = 70, marginLR = ((windowWidth - fieldWidth*cellSize)/2-textWidth)/2, marginTB = 10;
+		SetRect(&textRect, 10, 20+player*50, 10 + textWidth, 20 + 50+player*50);
+		SetPlayerColors(hdc, player);
+		PWCHAR strPlayerNum = new WCHAR[2];
+		_itow_s(player+1, strPlayerNum, 2, 10);
+		PWCHAR text = new WCHAR[13];
+		wcscpy_s(text, 13, L"Player");
+		wcscat_s(text, 13, strPlayerNum);
+		wcscat_s(text, 13, L": ");
+		PWCHAR strPlayerScore = new WCHAR[4];
+		_itow_s((*scores)[player], strPlayerScore, 4, 10);
+		wcscat_s(text, 13, strPlayerScore);
+		DrawTextW(hdc, text, -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
+		delete[] strPlayerNum;
+		delete[] text;
+		delete[] strPlayerScore;
+		
+		//logFont.lfWeight = FW_MEDIUM;
+	}
+	if (originalFont != NULL)
+		SelectObject(hdc, originalFont);
+	DeleteObject((HGDIOBJ)(HFONT)(hFont));
+	if (originalPen != NULL)
+		SelectObject(hdc, originalPen);
+	if (originalBrush != NULL)
+		SelectObject(hdc, originalBrush);
+	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
 }
 
 Drawing::~Drawing()
