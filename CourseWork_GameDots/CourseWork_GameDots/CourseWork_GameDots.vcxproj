@@ -146,6 +146,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CourseWork_GameDots.h" />
+    <ClInclude Include="Drawing.h" />
     <ClInclude Include="GameLogic.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
@@ -153,6 +154,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CourseWork_GameDots.cpp" />
+    <ClCompile Include="Drawing.cpp" />
     <ClCompile Include="GameLogic.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
