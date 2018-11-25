@@ -30,6 +30,62 @@ Drawing::Drawing()
 {
 }
 
+VOID Drawing::CreateDotsMatrix()
+{
+	std::vector<std::vector<PDOT>> dotsMatrix(MAX_FIELD_HEIGHT);
+	//std::vector<std::vector<PPOINT>> physicalCoordinatesMatrix(Drawing::fieldHeight);
+	for (int i = 0; i < MAX_FIELD_HEIGHT; i++)
+	{
+		std::vector<PDOT> dotsArr(MAX_FIELD_WIDTH);
+		//std::vector<PPOINT> physicalCoordinatesArr(Drawing::fieldWidth);
+		for (int j = 0; j < MAX_FIELD_WIDTH; j++)
+		{
+			dotsArr[j] = new DOT();
+			//physicalCoordinatesArr[j] = (PPOINT)malloc(sizeof(POINT));
+		}
+		dotsMatrix[i] = dotsArr;
+		//physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
+	}
+	dots = dotsMatrix;
+}
+
+VOID Drawing::CreatePhysicalCoordinatesMatrix()
+{
+	vector<vector<PPOINT>> physicalCoordinatesMatrix(MAX_FIELD_HEIGHT);
+	for (int i = 0; i < MAX_FIELD_HEIGHT; i++)
+	{
+		vector<PPOINT> physicalCoordinatesArr(MAX_FIELD_WIDTH);
+		for (int j = 0; j < MAX_FIELD_WIDTH; j++)
+		{
+			physicalCoordinatesArr[j] = new POINT();//(PPOINT)malloc(sizeof(POINT));
+		}
+		physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
+	}
+	logicalToPhysical = physicalCoordinatesMatrix;
+}
+
+//VOID DeleteDotsMatrix()
+//{
+//	for (int i = 0; i < MAX_FIELD_HEIGHT; i++)
+//	{
+//		for (int j = 0; j < MAX_FIELD_WIDTH; j++)
+//		{
+//			delete dots[i][j];
+//		}
+//	}
+//}
+//
+//VOID DeletePhysicalCoordinatesMatrix()
+//{
+//	for (int i = 0; i < MAX_FIELD_HEIGHT; i++)
+//	{
+//		for (int j = 0; j < MAX_FIELD_WIDTH; j++)
+//		{
+//			delete logicalToPhysical[i][j];
+//		}
+//	}
+//}
+
 VOID Drawing::DrawClosedAreas(vector<vector<UINT>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, UINT playersAmount)
 {
 	//HDC hdc = GetDC(hWnd);
@@ -99,21 +155,6 @@ VOID Drawing::DrawDots(UINT playersAmount)
 
 VOID Drawing::FindPhysicalCoordinates(INT moveNum)
 {
-	if (moveNum == 0)
-	{
-		vector<vector<PPOINT>> physicalCoordinatesMatrix(fieldHeight);
-		for (int i = 0; i < fieldHeight; i++)
-		{
-			vector<PPOINT> physicalCoordinatesArr(fieldWidth);
-			for (int j = 0; j < fieldWidth; j++)
-			{
-				physicalCoordinatesArr[j] = new POINT();//(PPOINT)malloc(sizeof(POINT));
-			}
-			physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
-		}
-		logicalToPhysical = physicalCoordinatesMatrix;
-	}
-
 	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
 	int y = marginTB;
 	for (int i = 0; i<fieldHeight; i++)
@@ -307,25 +348,19 @@ VOID Drawing::HighliteDot(INT player, POINT dot)
 
 VOID Drawing::InitializeDotsMatrix()
 {
-	std::vector<std::vector<PDOT>> dotsMatrix(Drawing::fieldHeight);
 	//std::vector<std::vector<PPOINT>> physicalCoordinatesMatrix(Drawing::fieldHeight);
-	for (int i = 0; i < Drawing::fieldHeight; i++)
+	for (int i = 0; i < MAX_FIELD_HEIGHT; i++)
 	{
-		std::vector<PDOT> dotsArr(Drawing::fieldWidth);
 		//std::vector<PPOINT> physicalCoordinatesArr(Drawing::fieldWidth);
-		for (int j = 0; j < Drawing::fieldWidth; j++)
+		for (int j = 0; j < MAX_FIELD_WIDTH; j++)
 		{
-			dotsArr[j] = (PDOT)malloc(sizeof(DOT));
-			dotsArr[j]->state = EMPTY_POS;
-			dotsArr[j]->logicalCoordinate.x = i;
-			dotsArr[j]->logicalCoordinate.y = j;
-
+			dots[i][j]->state = EMPTY_POS;
+			dots[i][j]->logicalCoordinate.x = i;
+			dots[i][j]->logicalCoordinate.y = j;
 			//physicalCoordinatesArr[j] = (PPOINT)malloc(sizeof(POINT));
 		}
-		dotsMatrix[i] = dotsArr;
 		//physicalCoordinatesMatrix[i] = physicalCoordinatesArr;
 	}
-	dots = dotsMatrix;
 	//logicalToPhysical = physicalCoordinatesMatrix;
 }
 
@@ -335,7 +370,7 @@ VOID Drawing::InitializeLogFont()
 	logFont.lfWidth = 0;
 	logFont.lfEscapement = 0;
 	logFont.lfOrientation = 0;
-	logFont.lfWeight = FW_BOLD;
+	logFont.lfWeight = FW_DEMIBOLD;
 	logFont.lfItalic = TRUE;
 	logFont.lfUnderline = FALSE;
 	logFont.lfStrikeOut = FALSE;
@@ -356,13 +391,16 @@ BOOLEAN Drawing::IsOnField(INT x, INT y)
 
 VOID Drawing::LineField()
 {
+	INT marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
+	LineRect(marginLR, marginTB, marginLR + fieldWidth*cellSize, marginTB + fieldHeight*cellSize);
+}
+
+VOID Drawing::LineRect(INT left, INT top, INT right, INT bottom)
+{
 	//HDC hdc = GetDC(hWnd);
-	int marginLR = (windowWidth - fieldWidth*cellSize) / 2, marginTB = (windowHeight - fieldHeight*cellSize) / 2;
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
 	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 	//SelectObject(hdc, );
-	Rectangle(hdc, marginLR, marginTB, marginLR + fieldWidth*cellSize, marginTB + fieldHeight*cellSize);
-	SelectObject(hdc, GetStockObject(DC_PEN));
 	switch (colorMode)
 	{
 	case STANDARD_COLORS:
@@ -378,21 +416,23 @@ VOID Drawing::LineField()
 	}
 	break;
 	}
+	Rectangle(hdc, left, top, right, bottom);
+	SelectObject(hdc, GetStockObject(DC_PEN));
 	//int countHorisontal = 0, countVertical = 0;
-	int x = marginLR, y = marginTB;
-	while (x <= (windowWidth - marginLR))
+	int x = left;
+	while (x <= right)
 	{
-		MoveToEx(hdc, x, y, NULL);
-		LineTo(hdc, x, y + fieldHeight*cellSize);
+		MoveToEx(hdc, x, top, NULL);
+		LineTo(hdc, x, bottom);
 		x += cellSize;
 		//countHorisontal++;
 	}
-	x = marginLR;		
 
-	while (y <= (windowHeight - marginTB))
+	int y = top;
+	while (y <= bottom)
 	{
-		MoveToEx(hdc, x, y, NULL);
-		LineTo(hdc, x + fieldWidth*cellSize, y);
+		MoveToEx(hdc, left, y, NULL);
+		LineTo(hdc, right, y);
 		y += cellSize;
 		//countVertical++;
 	}
@@ -518,41 +558,40 @@ VOID Drawing::ShowBackground()
 
 VOID Drawing::ShowScores(vector<INT> *scores)
 {
-	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
-	HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+	LineRect(SCORES_MARGIN/2, SCORES_MARGIN/2, SCORES_MARGIN*3/2 + SCORES_WIDTH, SCORES_MARGIN*3/2 + SCORES_HEIGHT*scores->size()-10);
+	SetBkMode(hdc,TRANSPARENT);
 	HFONT hFont = CreateFontIndirectW(&logFont);
 	HGDIOBJ originalFont = SelectObject(hdc, hFont);
 	for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + scores->size(); player++)
 	{
-		
+		HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
+		HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
 		RECT textRect;
-		INT textWidth = 70, marginLR = ((windowWidth - fieldWidth*cellSize)/2-textWidth)/2, marginTB = 10;
-		SetRect(&textRect, 10, 20+player*50, 10 + textWidth, 20 + 50+player*50);
+		SetRect(&textRect, SCORES_MARGIN, SCORES_MARGIN+player*SCORES_HEIGHT, SCORES_MARGIN + SCORES_WIDTH, SCORES_MARGIN + SCORES_HEIGHT*(player+1));
 		SetPlayerColors(hdc, player);
 		PWCHAR strPlayerNum = new WCHAR[2];
 		_itow_s(player+1, strPlayerNum, 2, 10);
-		PWCHAR text = new WCHAR[13];
-		wcscpy_s(text, 13, L"Player");
-		wcscat_s(text, 13, strPlayerNum);
-		wcscat_s(text, 13, L": ");
+		PWCHAR text = new WCHAR[MAX_NICKNAME+6];
+		wcscpy_s(text, MAX_NICKNAME+6, L"Player");
+		wcscat_s(text, MAX_NICKNAME+6, strPlayerNum);
+		wcscat_s(text, MAX_NICKNAME+6, L": ");
 		PWCHAR strPlayerScore = new WCHAR[4];
 		_itow_s((*scores)[player], strPlayerScore, 4, 10);
-		wcscat_s(text, 13, strPlayerScore);
+		wcscat_s(text, MAX_NICKNAME+6, strPlayerScore);
 		DrawTextW(hdc, text, -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
 		delete[] strPlayerNum;
 		delete[] text;
 		delete[] strPlayerScore;
-		
+		if (originalPen != NULL)
+			SelectObject(hdc, originalPen);
+		if (originalBrush != NULL)
+			SelectObject(hdc, originalBrush);
+		DeleteObject((HGDIOBJ)(HPEN)(playersPen));
 		//logFont.lfWeight = FW_MEDIUM;
 	}
 	if (originalFont != NULL)
 		SelectObject(hdc, originalFont);
 	DeleteObject((HGDIOBJ)(HFONT)(hFont));
-	if (originalPen != NULL)
-		SelectObject(hdc, originalPen);
-	if (originalBrush != NULL)
-		SelectObject(hdc, originalBrush);
-	DeleteObject((HGDIOBJ)(HPEN)(playersPen));
 }
 
 Drawing::~Drawing()

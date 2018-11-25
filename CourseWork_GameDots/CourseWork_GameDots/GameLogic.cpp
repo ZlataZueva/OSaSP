@@ -231,6 +231,19 @@ INT GameLogic::FindOtherPlayersDots(vector<UINT> *cycle, std::vector<vector<PPOI
 	return count;
 }
 
+VOID GameLogic::StartNewGame()
+{
+	vertexes.clear();
+	closedAreas.clear();
+	//capturedDotsAmounts->clear();
+	for (INT i = 0; i < playersAmount; i++)
+	{
+		(*capturedDotsAmounts)[i] = 0;
+	}
+	moveNum = 0;
+}
+
 GameLogic::~GameLogic()
 {
+	delete capturedDotsAmounts;
 }

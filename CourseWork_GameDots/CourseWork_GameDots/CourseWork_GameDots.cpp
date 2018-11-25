@@ -40,8 +40,10 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT					OnCreate();
+VOID				OnFinishGame(HWND hWnd);
 INT					OnLButtonDown(HWND hWnd, LPARAM lParam);
 INT					OnMouseMove(HWND hWnd, LPARAM lParam);
+VOID				OnNewGame(HWND hWnd);
 INT					OnPaint(HWND hWnd);
 INT					OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam);
 BOOL				OnSizing(WPARAM wParam, LPARAM lParam);
@@ -99,7 +101,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbWndExtra     = 0;
     wcex.hInstance      = hInstance;
     wcex.hIcon          = LoadIconW(hInstance, MAKEINTRESOURCE(IDI_ICON1));
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hCursor        = LoadCursor(nullptr, IDC_HAND);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_COURSEWORK_GAMEDOTS);
     wcex.lpszClassName  = szWindowClass;
@@ -131,10 +133,17 @@ INT OnCreate()
 	//drawing = new Drawing();
 	//drawing->FindPhysicalCoordinates(0);
 	gameLogic = new GameLogic();
+	Drawing::CreateDotsMatrix();
+	Drawing::CreatePhysicalCoordinatesMatrix();
 	Drawing::InitializeLogFont();
 	if (Drawing::LoadBackgroundImage(hInst))
 		return 0;
 	return -1;
+}
+
+VOID OnFinishGame(HWND hWnd)
+{
+	DestroyWindow(hWnd);
 }
 
 INT OnLButtonDown(HWND hWnd, LPARAM lParam)
@@ -160,6 +169,14 @@ INT OnMouseMove(HWND hWnd, LPARAM lParam)
 	DeleteRgn(newDotRgn);
 	DeleteRgn(updateRgn);
 	return 0;
+}
+
+VOID OnNewGame(HWND hWnd)
+{
+	gameLogic->StartNewGame();
+	Drawing::InitializeDotsMatrix();
+	InvalidateRgn(hWnd, NULL, TRUE);
+	UpdateWindow(hWnd);
 }
 
 INT OnPaint(HWND hWnd)
@@ -189,11 +206,14 @@ INT OnPaint(HWND hWnd)
 
 INT OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
+	Drawing::dotOver.x = 1000;
+	Drawing::dotOver.y = 1000;
 	if ((wParam == SIZE_MAXIMIZED || wParam == SIZE_RESTORED) && GameLogic::moveNum == 0)
 	{
-		RECT* windowRect = (RECT *)malloc(sizeof(RECT));
+		RECT* windowRect = new RECT();
 		GetWindowRect(hWnd, windowRect);
 		Drawing::FitSize(windowRect, GameLogic::moveNum);
+		delete windowRect;
 		Drawing::InitializeDotsMatrix();
 	}
 	Drawing::windowWidth = LOWORD(lParam);
@@ -241,9 +261,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
+            case IDM_NEWGAME:
+				OnNewGame(hWnd);
                 break;
+			case IDM_FINISHGAME:
+				OnFinishGame(hWnd);
+				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
