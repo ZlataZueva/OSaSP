@@ -16,9 +16,9 @@
 
 #define MAX_LOADSTRING 100
 #define BTN_SHOWRECORDS_TITLE L""
-#define BTN_MARGIN 15
-#define BTN_SHOWRECORDS_WIDTH 100
-#define BTN_SHOW_RECORDS_HEIGHT 80
+
+#define DEFAULT_WIDTH_DIFFERENCE 15
+#define DEFAULT_HEIGHT_DIRRERENCE 58
 
 
 using namespace std;
@@ -48,7 +48,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 VOID				AddShowRecordsBtn(HWND hWnd);
-INT					OnCreate();
+INT					OnCreate(HWND hWnd);
 VOID				OnFinishGame(HWND hWnd);
 INT					OnLButtonDown(HWND hWnd, LPARAM lParam);
 INT					OnMouseMove(HWND hWnd, LPARAM lParam);
@@ -151,7 +151,20 @@ VOID AddShowRecordsBtn(HWND hWnd)
 	SendMessageW(hWndBtnShowRecords, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBmpRecords);
 }
 
-INT OnCreate()
+VOID OnChildClosed(HWND hWnd)
+{
+	RECT* windowRect = new RECT();
+	GetWindowRect(hWnd, windowRect);
+	//Drawing::FitSize(windowRect, GameLogic::moveNum);
+	Drawing::windowWidth = windowRect->right-windowRect->left-DEFAULT_WIDTH_DIFFERENCE;
+	Drawing::windowHeight = windowRect->bottom-windowRect->top-DEFAULT_HEIGHT_DIRRERENCE;
+	Drawing::FindPhysicalCoordinates(GameLogic::moveNum);
+	InvalidateRect(hWnd, NULL, TRUE);
+	UpdateWindow(hWnd);
+	delete windowRect;
+}
+
+INT OnCreate(HWND hWnd)
 {
 	//drawing = new Drawing();
 	//drawing->FindPhysicalCoordinates(0);
@@ -159,12 +172,20 @@ INT OnCreate()
 	Drawing::CreateDotsMatrix();
 	Drawing::CreatePhysicalCoordinatesMatrix();
 	Drawing::InitializeLogFont();
-	Drawing::LoadBackgroundImage(hInst);
+	Drawing::LoadImages(hInst);
 	vector<PWCHAR> playersNames;
 	playersNames.push_back(DEFAULT_NAME1);
 	playersNames.push_back(DEFAULT_NAME2);
 	playersNames.push_back(DEFAULT_NAME3);
+	playersNames.push_back(DEFAULT_NAME4);
+	playersNames.push_back(DEFAULT_NAME5);
 	SavingResults::playersNames = playersNames;
+
+	RecordsWindow::RegisteRecordsWindowClass(hInst);
+	if (!RecordsWindow::CreateRecordsWindow(hWnd, hInst))
+	{
+		return -1;
+	}
 	return 0;
 }
 
@@ -213,7 +234,7 @@ INT OnPaint(HWND hWnd)
 	if (GetUpdateRgn(hWnd, NULL, TRUE) != NULLREGION)
 	{
 		Drawing::hdc = BeginPaint(hWnd, &(Drawing::ps));
-		Drawing::ShowBackground();
+		Drawing::ShowBackground(Drawing::hBmpBackground);
 		Drawing::LineField();
 		Drawing::HighliteDot(GameLogic::moveNum % GameLogic::playersAmount, Drawing::dotOver);
 		if (GameLogic::moveNum > 0)
@@ -274,13 +295,8 @@ BOOL OnSizing(WPARAM wParam, LPARAM lParam)
 VOID OnShowRecords(HWND hWnd)
 {
 	SavingResults::ReadRecordsTable();
-	RecordsWindow::MyRegisterClass(hInst);
-
-	// ¬ыполнить инициализацию приложени€:
-	if (!RecordsWindow::InitInstance(hWnd,hInst, SW_SHOW))
-	{
-		return;
-	}
+	SavingResults::UpdateRecords(gameLogic->capturedDotsAmounts);
+	RecordsWindow::ShowRecordsWindow();
 	//HWND hWndBtnBack = 
 	//InvalidateRect(hWnd, NULL, TRUE);
 	//UpdateWindow(hWnd);
@@ -305,7 +321,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
 	case WM_CREATE:
-		OnCreate();
+		OnCreate(hWnd);
 		break;
     case WM_COMMAND:
         {
@@ -344,6 +360,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_SIZE:
 		OnSize(hWnd, wParam, lParam);
+		break;
+	case WM_CHILDACTIVATE:
+		OnChildClosed(hWnd);
 		break;
 	case WM_MOUSEMOVE:
 		OnMouseMove(hWnd, lParam);

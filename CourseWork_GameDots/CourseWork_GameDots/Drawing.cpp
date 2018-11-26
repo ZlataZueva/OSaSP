@@ -8,6 +8,7 @@ using namespace std;
 PAINTSTRUCT Drawing::ps;
 HDC Drawing::hdc;
 HBITMAP Drawing::hBmpBackground;
+HBITMAP Drawing::hBmpTop10;
 //BITMAP bmpBackground;
 //HDC memDC;
 HBITMAP Drawing::originalBmp;
@@ -452,7 +453,7 @@ VOID Drawing::LineRect(INT left, INT top, INT right, INT bottom)
 	//ReleaseDC(hWnd, hdc);
 }
 
-BOOL Drawing::LoadBackgroundImage(HINSTANCE hInst)
+BOOL Drawing::LoadImages(HINSTANCE hInst)
 {
 	/*WCHAR wsImagePath[MAX_PATH];
 	wcscpy_s(wsImagePath, MAX_PATH, wsProgramPath);
@@ -461,6 +462,7 @@ BOOL Drawing::LoadBackgroundImage(HINSTANCE hInst)
 	pwcLastSlash = wcsrchr(wsImagePath, L'\\');
 	wcscpy_s(pwcLastSlash, 20, L"\\images\\desktop.bmp");*/
 	hBmpBackground = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP1));
+	hBmpTop10 = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP3));
 	//hBmpBackground = (HBITMAP)LoadImageW(NULL, wsImagePath, IMAGE_BITMAP, windowWidth, windowHeight, LR_LOADFROMFILE | LR_LOADTRANSPARENT);
 	//GetObjectW(hBmpBackground, sizeof(bmpBackground), &bmpBackground);
 	/*hdc = GetDC(hWnd);
@@ -543,11 +545,11 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 	//ReleaseDC(hWnd, hdc);
 }
 
-VOID Drawing::ShowBackground()
+VOID Drawing::ShowBackground(HBITMAP hBmp)
 {
 	//HDC hdc = GetDC(hWnd);
 	HDC memDC = CreateCompatibleDC(hdc);
-	originalBmp = (HBITMAP)SelectObject(memDC, hBmpBackground);
+	originalBmp = (HBITMAP)SelectObject(memDC, hBmp);
 	BitBlt(hdc, 0, 0, windowWidth, windowHeight, memDC, 0, 0, SRCCOPY);
 	if (originalBmp!=NULL)
 		SelectObject(memDC, originalBmp);
@@ -558,19 +560,29 @@ VOID Drawing::ShowBackground()
 
 VOID Drawing::ShowRecords(vector<PWCHAR> recordsLines)
 {
-	INT marginLR = (windowWidth - RECORDS_FIELD_WIDTH) / 2, marginTB = (windowHeight - RECORDS_FIELD_HEIGHT) / 2;
+	INT marginLR = (windowWidth - RECORDS_FIELD_WIDTH) / 2;
+	INT marginTB = (windowHeight - RECORDS_FIELD_HEIGHT+TOP_IMAGE_HEIGHT + 5) / 2;
 	LineRect(marginLR, marginTB, marginLR + RECORDS_FIELD_WIDTH, marginTB + RECORDS_FIELD_HEIGHT);
 	SetBkMode(hdc, TRANSPARENT);
+	logFont.lfHeight *= 2;
 	HFONT hFont = CreateFontIndirectW(&logFont);
-	marginLR += (RECORDS_FIELD_WIDTH - SCORES_WIDTH) / 2;
+	HGDIOBJ originalFont = SelectObject(hdc, hFont);
+	SetTextColor(hdc, NOTEBOOK_FIRST_DOT_PEN);
 	marginTB += SCORES_MARGIN / 2;
 	for (INT record=0; record < recordsLines.size(); record++)
 	{
+		if (wcscmp(recordsLines[record], L"-: 0\n") == 0)
+		{
+			wcscpy_s(recordsLines[record], MAX_NICKNAME + 5, L"---");
+		}
 		RECT textRect;
-		SetRect(&textRect, marginLR, marginTB + record*SCORES_HEIGHT, marginLR + SCORES_WIDTH, marginTB + SCORES_HEIGHT*(record + 1));
+		SetRect(&textRect, marginLR, marginTB + record*SCORES_HEIGHT, marginLR + RECORDS_FIELD_WIDTH, marginTB + SCORES_HEIGHT*(record + 1));
 		DrawTextW(hdc, recordsLines[record], -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
 	}
+	if (originalFont != NULL)
+		SelectObject(hdc, originalFont);
 	DeleteObject((HGDIOBJ)(HFONT)(hFont));
+	logFont.lfHeight /= 2;
 }
 
 VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
@@ -610,6 +622,17 @@ VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
 	if (originalFont != NULL)
 		SelectObject(hdc, originalFont);
 	DeleteObject((HGDIOBJ)(HFONT)(hFont));
+}
+
+VOID Drawing::ShowTopImage()
+{
+	INT marginLR = (windowWidth - TOP_IMAGE_WIDTH) / 2, marginTB = (windowHeight - RECORDS_FIELD_HEIGHT - TOP_IMAGE_HEIGHT - 5)/2;
+	HDC memDC = CreateCompatibleDC(hdc);
+	originalBmp = (HBITMAP)SelectObject(memDC, hBmpTop10);
+	BitBlt(hdc, marginLR, marginTB, marginLR+TOP_IMAGE_WIDTH, marginTB+TOP_IMAGE_HEIGHT, memDC, 0, 0, SRCAND);
+	if (originalBmp != NULL)
+		SelectObject(memDC, originalBmp);
+	DeleteDC(memDC);
 }
 
 Drawing::~Drawing()

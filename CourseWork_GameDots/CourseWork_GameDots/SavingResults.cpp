@@ -42,8 +42,8 @@ VOID SavingResults::ReadRecordsTable()
 				PWCHAR strRecordResult;// = new WCHAR[4];
 				fileInput.getline(recordLine, MAX_NICKNAME + 4);
 				PWCHAR* context = new PWCHAR;
-				recordName = wcstok_s(recordLine, L":\n",context);
-				strRecordResult = wcstok_s(NULL, L":\n", context);
+				recordName = wcstok_s(recordLine, L": \n",context);
+				strRecordResult = wcstok_s(NULL, L": \n", context);
 				delete context;
 				INT recordResult = _wtoi(strRecordResult);
 				PRECORD record = new RECORD();
@@ -88,13 +88,13 @@ vector<PWCHAR> SavingResults::GetStringsRecords()
 	vector<PWCHAR> stringsRecords;
 	for (INT i = 0; i < RECORDS_AMOUNT; i++)
 	{
-		PWCHAR recordLine = new WCHAR[MAX_NICKNAME + 4];
+		PWCHAR recordLine = new WCHAR[MAX_NICKNAME + 5];
 		PWCHAR strRecordResult = new WCHAR[4];
 		_itow_s(recordsTable[i]->result, strRecordResult, 4, 10);
-		wcscpy_s(recordLine, MAX_NICKNAME + 4, recordsTable[i]->name);
-		wcscat_s(recordLine, MAX_NICKNAME + 4, L":");
-		wcscat_s(recordLine, MAX_NICKNAME + 4, strRecordResult);
-		wcscat_s(recordLine, MAX_NICKNAME + 4, L"\n");
+		wcscpy_s(recordLine, MAX_NICKNAME + 5, recordsTable[i]->name);
+		wcscat_s(recordLine, MAX_NICKNAME + 5, L": ");
+		wcscat_s(recordLine, MAX_NICKNAME + 5, strRecordResult);
+		wcscat_s(recordLine, MAX_NICKNAME + 5, L"\n");
 		delete strRecordResult;
 		stringsRecords.push_back(recordLine);
 	}

@@ -5,17 +5,19 @@
 #include "SavingResults.h"
 
 HINSTANCE RecordsWindow::hInst;
+HWND RecordsWindow::hWnd;
+HWND RecordsWindow::hWndParent;
 
 RecordsWindow::RecordsWindow()
 {
 }
 
-BOOL RecordsWindow::InitInstance(HWND hWndParent, HINSTANCE hInstance, int nCmdShow)
+BOOL RecordsWindow::CreateRecordsWindow(HWND hWndParent, HINSTANCE hInstance)
 {
-	hInst = hInstance; // Сохранить дескриптор экземпляра в глобальной переменной
-
-	HWND hWnd = CreateWindowW(RECORDS_WINDOW_CLASS, RECORDS_WINDOW_NAME, WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWndParent, NULL, hInstance, NULL);
+	hInst = hInstance;
+	RecordsWindow::hWndParent = hWndParent;
+	hWnd = CreateWindowW(RECORDS_WINDOW_CLASS, RECORDS_WINDOW_NAME, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | DS_CENTER,
+		CW_USEDEFAULT, 0, RECORDS_WINDOW_DEFAULT_WIDTH, RECORDS_WINDOW_DEFAULT_HEIGHT, hWndParent, NULL, hInstance, NULL);
 
 	//AddShowRecordsBtn(hWnd);
 
@@ -23,14 +25,10 @@ BOOL RecordsWindow::InitInstance(HWND hWndParent, HINSTANCE hInstance, int nCmdS
 	{
 		return FALSE;
 	}
-
-	ShowWindow(hWnd, nCmdShow);
-	UpdateWindow(hWnd);
-
 	return TRUE;
 }
 
-ATOM RecordsWindow::MyRegisterClass(HINSTANCE hInstance)
+ATOM RecordsWindow::RegisteRecordsWindowClass(HINSTANCE hInstance)
 {
 	WNDCLASSEXW wcex;
 
@@ -54,7 +52,8 @@ ATOM RecordsWindow::MyRegisterClass(HINSTANCE hInstance)
 VOID OnPaint(HWND hWnd)
 {
 	Drawing::hdc = BeginPaint(hWnd, &Drawing::ps);
-	Drawing::ShowBackground();
+	Drawing::ShowBackground(Drawing::hBmpBackground);
+	Drawing::ShowTopImage();
 	Drawing::ShowRecords(SavingResults::GetStringsRecords());
 	//Drawing::LineField();
 	EndPaint(hWnd, &(Drawing::ps));
@@ -65,6 +64,17 @@ VOID OnSize(HWND hWnd, LPARAM lParam)
 	Drawing::windowWidth = LOWORD(lParam);
 	Drawing::windowHeight = HIWORD(lParam);
 	InvalidateRect(hWnd, NULL, TRUE);
+	UpdateWindow(hWnd);
+}
+
+VOID RecordsWindow::ShowRecordsWindow()
+{
+	RECT* windowRect = new RECT();
+	GetWindowRect(hWnd, windowRect);
+	Drawing::windowWidth = windowRect->right - windowRect->left;
+	Drawing::windowHeight = windowRect->bottom - windowRect->top;
+	delete windowRect;
+	ShowWindow(hWnd, SW_SHOW);
 	UpdateWindow(hWnd);
 }
 
@@ -80,9 +90,6 @@ LRESULT CALLBACK RecordsWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 		// Разобрать выбор в меню:
 		switch (wmId)
 		{
-		case IDM_ABOUT:
-			//DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -94,8 +101,9 @@ LRESULT CALLBACK RecordsWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 	case WM_SIZE:
 		OnSize(hWnd,lParam);
 		break;
-	case WM_DESTROY:
-		//PostQuitMessage(0);
+	case WM_CLOSE:
+		SendMessage(hWndParent, WM_CHILDACTIVATE, 0, 0);
+		ShowWindow(hWnd, SW_HIDE);
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);

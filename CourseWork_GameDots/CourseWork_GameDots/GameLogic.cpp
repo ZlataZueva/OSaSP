@@ -7,7 +7,7 @@
 using namespace std;
 
 INT GameLogic::moveNum = 0;
-INT GameLogic::playersAmount = 3;
+INT GameLogic::playersAmount = 5;
 
 GameLogic::GameLogic()
 {

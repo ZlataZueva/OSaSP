@@ -87,5 +87,8 @@
     <Image Include="..\images\records.bmp">
       <Filter>Файлы ресурсов</Filter>
     </Image>
+    <Image Include="..\images\top10.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
   </ItemGroup>
 </Project>

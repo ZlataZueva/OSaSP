@@ -173,6 +173,7 @@
   <ItemGroup>
     <Image Include="..\images\desktop.bmp" />
     <Image Include="..\images\records.bmp" />
+    <Image Include="..\images\top10.bmp" />
     <Image Include="bitmap1.bmp" />
     <Image Include="CourseWork_GameDots.ico" />
     <Image Include="icon.ico" />
