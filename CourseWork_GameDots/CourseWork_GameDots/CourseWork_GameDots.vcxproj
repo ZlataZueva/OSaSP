@@ -148,7 +148,9 @@
     <ClInclude Include="CourseWork_GameDots.h" />
     <ClInclude Include="Drawing.h" />
     <ClInclude Include="GameLogic.h" />
+    <ClInclude Include="RecordsWindow.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SavingResults.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -156,6 +158,8 @@
     <ClCompile Include="CourseWork_GameDots.cpp" />
     <ClCompile Include="Drawing.cpp" />
     <ClCompile Include="GameLogic.cpp" />
+    <ClCompile Include="RecordsWindow.cpp" />
+    <ClCompile Include="SavingResults.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -168,6 +172,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\images\desktop.bmp" />
+    <Image Include="..\images\records.bmp" />
     <Image Include="bitmap1.bmp" />
     <Image Include="CourseWork_GameDots.ico" />
     <Image Include="icon.ico" />

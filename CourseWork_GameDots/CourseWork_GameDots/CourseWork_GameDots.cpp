@@ -11,15 +11,22 @@
 
 #include "Drawing.h"
 #include "GameLogic.h"
+#include "SavingResults.h"
+#include "RecordsWindow.h"
 
 #define MAX_LOADSTRING 100
+#define BTN_SHOWRECORDS_TITLE L""
+#define BTN_MARGIN 15
+#define BTN_SHOWRECORDS_WIDTH 100
+#define BTN_SHOW_RECORDS_HEIGHT 80
+
 
 using namespace std;
 
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
-//WCHAR wsProgramPath[MAX_PATH];
+WCHAR wsProgramPath[MAX_PATH];
 
 
 typedef struct SIZESTRUCT{
@@ -29,6 +36,7 @@ typedef struct SIZESTRUCT{
 
 //Drawing* drawing;
 GameLogic* gameLogic;
+//SavingResults* savingResults;
 
 //std::vector<EDGE> edges;
 //BOOLEAN gameStarted = FALSE;
@@ -39,6 +47,7 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+VOID				AddShowRecordsBtn(HWND hWnd);
 INT					OnCreate();
 VOID				OnFinishGame(HWND hWnd);
 INT					OnLButtonDown(HWND hWnd, LPARAM lParam);
@@ -47,6 +56,7 @@ VOID				OnNewGame(HWND hWnd);
 INT					OnPaint(HWND hWnd);
 INT					OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam);
 BOOL				OnSizing(WPARAM wParam, LPARAM lParam);
+VOID				OnShowRecords(HWND hWnd);
 VOID				PlaceDot(INT x, INT y);
 
 
@@ -58,7 +68,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-	//GetModuleFileNameW(NULL, wsProgramPath, MAX_PATH);
+	GetModuleFileNameW(NULL, wsProgramPath, MAX_PATH);
 	
     // Инициализация глобальных строк
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -115,7 +125,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Сохранить дескриптор экземпляра в глобальной переменной
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
+   
+   AddShowRecordsBtn(hWnd);
 
    if (!hWnd)
    {
@@ -128,6 +140,17 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+VOID AddShowRecordsBtn(HWND hWnd)
+{
+	HWND hWndBtnShowRecords = CreateWindowW(L"BUTTON",
+		BTN_SHOWRECORDS_TITLE,
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER | BS_MULTILINE | BS_BITMAP,
+		BTN_MARGIN, MIN_FIELD_HEIGHT*MIN_CELL_SIZE - BTN_MARGIN - BTN_SHOW_RECORDS_HEIGHT, BTN_SHOWRECORDS_WIDTH, BTN_SHOW_RECORDS_HEIGHT,
+		hWnd, (HMENU)ID_BTN_SHOWRECORDS, (HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE), NULL);
+	HBITMAP hBmpRecords = LoadBitmapW(hInst, MAKEINTRESOURCE(IDB_BITMAP2));
+	SendMessageW(hWndBtnShowRecords, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBmpRecords);
+}
+
 INT OnCreate()
 {
 	//drawing = new Drawing();
@@ -136,13 +159,19 @@ INT OnCreate()
 	Drawing::CreateDotsMatrix();
 	Drawing::CreatePhysicalCoordinatesMatrix();
 	Drawing::InitializeLogFont();
-	if (Drawing::LoadBackgroundImage(hInst))
-		return 0;
-	return -1;
+	Drawing::LoadBackgroundImage(hInst);
+	vector<PWCHAR> playersNames;
+	playersNames.push_back(DEFAULT_NAME1);
+	playersNames.push_back(DEFAULT_NAME2);
+	playersNames.push_back(DEFAULT_NAME3);
+	SavingResults::playersNames = playersNames;
+	return 0;
 }
 
 VOID OnFinishGame(HWND hWnd)
 {
+	SavingResults::UpdateRecords(gameLogic->capturedDotsAmounts);
+	SavingResults::SaveRecords();
 	DestroyWindow(hWnd);
 }
 
@@ -198,10 +227,21 @@ INT OnPaint(HWND hWnd)
 			}
 			Drawing::DrawClosedAreas(&(gameLogic->closedAreas), &vertexesCoordinates, GameLogic::playersAmount);
 		}
-		Drawing::ShowScores(gameLogic->capturedDotsAmounts);
+		Drawing::ShowScores(SavingResults::playersNames, gameLogic->capturedDotsAmounts);
 		EndPaint(hWnd, &(Drawing::ps));
 	}
 	return 0;
+}
+
+VOID OnSaveAsGame()
+{
+	//расположение (ряд и колонка) каждой вершины по номеру
+	//замкнутые области (как список номеров вершин) в порядке добавления 
+}
+
+VOID OnSaveGame()
+{
+	SavingResults::GetSaveGameDirectoryPath(wsProgramPath);
 }
 
 INT OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
@@ -229,6 +269,21 @@ BOOL OnSizing(WPARAM wParam, LPARAM lParam)
 	RECT* newWindowRect = (RECT *)(lParam);
 	Drawing::FitSize(newWindowRect, GameLogic::moveNum);
 	return TRUE;
+}
+
+VOID OnShowRecords(HWND hWnd)
+{
+	SavingResults::ReadRecordsTable();
+	RecordsWindow::MyRegisterClass(hInst);
+
+	// Выполнить инициализацию приложения:
+	if (!RecordsWindow::InitInstance(hWnd,hInst, SW_SHOW))
+	{
+		return;
+	}
+	//HWND hWndBtnBack = 
+	//InvalidateRect(hWnd, NULL, TRUE);
+	//UpdateWindow(hWnd);
 }
 
 VOID PlaceDot(INT x, INT y)
@@ -264,8 +319,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_NEWGAME:
 				OnNewGame(hWnd);
                 break;
+			case IDM_SAVEAS:
+				OnSaveAsGame();
+				break;
+			case IDM_SAVEGAME:
+				OnSaveGame();
+				break;
 			case IDM_FINISHGAME:
 				OnFinishGame(hWnd);
+				break;
+			case ID_BTN_SHOWRECORDS:
+				OnShowRecords(hWnd);
 				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);

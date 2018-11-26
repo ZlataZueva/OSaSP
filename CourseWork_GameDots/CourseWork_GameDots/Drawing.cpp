@@ -556,7 +556,24 @@ VOID Drawing::ShowBackground()
 	//BitBlt(hdc, 0, 0, x, y, memDC, 0, 0, SRCCOPY);
 }
 
-VOID Drawing::ShowScores(vector<INT> *scores)
+VOID Drawing::ShowRecords(vector<PWCHAR> recordsLines)
+{
+	INT marginLR = (windowWidth - RECORDS_FIELD_WIDTH) / 2, marginTB = (windowHeight - RECORDS_FIELD_HEIGHT) / 2;
+	LineRect(marginLR, marginTB, marginLR + RECORDS_FIELD_WIDTH, marginTB + RECORDS_FIELD_HEIGHT);
+	SetBkMode(hdc, TRANSPARENT);
+	HFONT hFont = CreateFontIndirectW(&logFont);
+	marginLR += (RECORDS_FIELD_WIDTH - SCORES_WIDTH) / 2;
+	marginTB += SCORES_MARGIN / 2;
+	for (INT record=0; record < recordsLines.size(); record++)
+	{
+		RECT textRect;
+		SetRect(&textRect, marginLR, marginTB + record*SCORES_HEIGHT, marginLR + SCORES_WIDTH, marginTB + SCORES_HEIGHT*(record + 1));
+		DrawTextW(hdc, recordsLines[record], -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
+	}
+	DeleteObject((HGDIOBJ)(HFONT)(hFont));
+}
+
+VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
 {
 	LineRect(SCORES_MARGIN/2, SCORES_MARGIN/2, SCORES_MARGIN*3/2 + SCORES_WIDTH, SCORES_MARGIN*3/2 + SCORES_HEIGHT*scores->size()-10);
 	SetBkMode(hdc,TRANSPARENT);
@@ -569,17 +586,18 @@ VOID Drawing::ShowScores(vector<INT> *scores)
 		RECT textRect;
 		SetRect(&textRect, SCORES_MARGIN, SCORES_MARGIN+player*SCORES_HEIGHT, SCORES_MARGIN + SCORES_WIDTH, SCORES_MARGIN + SCORES_HEIGHT*(player+1));
 		SetPlayerColors(hdc, player);
-		PWCHAR strPlayerNum = new WCHAR[2];
+		PWCHAR text = new WCHAR[MAX_NICKNAME + 6];
+		/*PWCHAR strPlayerNum = new WCHAR[2];
 		_itow_s(player+1, strPlayerNum, 2, 10);
-		PWCHAR text = new WCHAR[MAX_NICKNAME+6];
 		wcscpy_s(text, MAX_NICKNAME+6, L"Player");
-		wcscat_s(text, MAX_NICKNAME+6, strPlayerNum);
+		wcscat_s(text, MAX_NICKNAME+6, strPlayerNum);*/
+		wcscpy_s(text, MAX_NICKNAME + 6, playersNames[player]);
 		wcscat_s(text, MAX_NICKNAME+6, L": ");
 		PWCHAR strPlayerScore = new WCHAR[4];
 		_itow_s((*scores)[player], strPlayerScore, 4, 10);
 		wcscat_s(text, MAX_NICKNAME+6, strPlayerScore);
 		DrawTextW(hdc, text, -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
-		delete[] strPlayerNum;
+		//delete[] strPlayerNum;
 		delete[] text;
 		delete[] strPlayerScore;
 		if (originalPen != NULL)
