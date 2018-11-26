@@ -171,8 +171,13 @@
     <ResourceCompile Include="CourseWork_GameDots.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\images\bitmap7.bmp" />
     <Image Include="..\images\desktop.bmp" />
     <Image Include="..\images\records.bmp" />
+    <Image Include="..\images\rules.bmp" />
+    <Image Include="..\images\rules1.bmp" />
+    <Image Include="..\images\rules2.bmp" />
+    <Image Include="..\images\rules3.bmp" />
     <Image Include="..\images\top10.bmp" />
     <Image Include="bitmap1.bmp" />
     <Image Include="CourseWork_GameDots.ico" />

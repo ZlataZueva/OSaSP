@@ -19,6 +19,8 @@
 
 #define DEFAULT_WIDTH_DIFFERENCE 15
 #define DEFAULT_HEIGHT_DIRRERENCE 58
+#define ID_BTN_SHOWRECORDS 30001
+#define ID_BTN_RULES 30002
 
 
 using namespace std;
@@ -27,6 +29,7 @@ HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 WCHAR wsProgramPath[MAX_PATH];
+HWND hWndBtnRules;
 
 
 typedef struct SIZESTRUCT{
@@ -47,6 +50,7 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+VOID				AddRulesBtn(HWND hWnd);
 VOID				AddShowRecordsBtn(HWND hWnd);
 INT					OnCreate(HWND hWnd);
 VOID				OnFinishGame(HWND hWnd);
@@ -58,6 +62,7 @@ INT					OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam);
 BOOL				OnSizing(WPARAM wParam, LPARAM lParam);
 VOID				OnShowRecords(HWND hWnd);
 VOID				PlaceDot(INT x, INT y);
+INT_PTR CALLBACK	Rules(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -126,18 +131,27 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
-   
-   AddShowRecordsBtn(hWnd);
-
    if (!hWnd)
    {
       return FALSE;
    }
-
+   AddShowRecordsBtn(hWnd);
+   AddRulesBtn(hWnd);
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
    return TRUE;
+}
+
+VOID AddRulesBtn(HWND hWnd)
+{
+	hWndBtnRules = CreateWindowW(L"BUTTON",
+		BTN_SHOWRECORDS_TITLE,
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER | BS_MULTILINE | BS_BITMAP,
+		WINDOW_DEFAULT_WIDTH-BTN_MARGIN-BTN_RULES_WIDTH,WINDOW_DEFAULT_HEIGHT- BTN_MARGIN - BTN_RULES_HEIGHT, BTN_RULES_WIDTH, BTN_RULES_HEIGHT,
+		hWnd, (HMENU)ID_BTN_RULES, (HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE), NULL);
+	HBITMAP hBmpRules = LoadBitmapW(hInst, MAKEINTRESOURCE(IDB_BITMAP4));
+	SendMessageW(hWndBtnRules, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBmpRules);
 }
 
 VOID AddShowRecordsBtn(HWND hWnd)
@@ -280,6 +294,9 @@ INT OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
 	Drawing::windowWidth = LOWORD(lParam);
 	Drawing::windowHeight = HIWORD(lParam);
 	Drawing::FindPhysicalCoordinates(GameLogic::moveNum);
+	INT btnRulesL = Drawing::windowWidth - BTN_MARGIN - BTN_RULES_WIDTH;
+	INT btnRulesT = Drawing::windowHeight - BTN_MARGIN - BTN_RULES_HEIGHT;
+	MoveWindow(hWndBtnRules,btnRulesL, btnRulesT,BTN_RULES_WIDTH, BTN_RULES_HEIGHT, TRUE);
 	InvalidateRect(hWnd, NULL, TRUE);
 	UpdateWindow(hWnd);
 	return 0;
@@ -347,29 +364,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_BTN_SHOWRECORDS:
 				OnShowRecords(hWnd);
 				break;
+			case ID_BTN_RULES:
+				DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, Rules);
+				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
         }
         break;
     case WM_PAINT:
-		OnPaint(hWnd);
-        break;
+		return OnPaint(hWnd);
 	case WM_SIZING:
-		OnSizing(wParam, lParam);
-		break;
+		return OnSizing(wParam, lParam);
 	case WM_SIZE:
-		OnSize(hWnd, wParam, lParam);
-		break;
+		return OnSize(hWnd, wParam, lParam);
 	case WM_CHILDACTIVATE:
 		OnChildClosed(hWnd);
 		break;
 	case WM_MOUSEMOVE:
-		OnMouseMove(hWnd, lParam);
-		break;
+		return OnMouseMove(hWnd, lParam);
 	case WM_LBUTTONDOWN:
-		OnLButtonDown(hWnd, lParam);
-		break;
+		return OnLButtonDown(hWnd, lParam);
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
@@ -379,7 +394,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-// Обработчик сообщений для окна "О программе".
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
@@ -397,4 +411,25 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+
+INT_PTR CALLBACK Rules(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+	case WM_PAINT:
+		Drawing::ShowRulesImages(hDlg);
+		break;
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
 }

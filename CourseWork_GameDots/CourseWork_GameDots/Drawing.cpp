@@ -9,6 +9,9 @@ PAINTSTRUCT Drawing::ps;
 HDC Drawing::hdc;
 HBITMAP Drawing::hBmpBackground;
 HBITMAP Drawing::hBmpTop10;
+HBITMAP Drawing::hBmpRules1;
+HBITMAP Drawing::hBmpRules2;
+HBITMAP Drawing::hBmpRules3;
 //BITMAP bmpBackground;
 //HDC memDC;
 HBITMAP Drawing::originalBmp;
@@ -175,11 +178,11 @@ VOID Drawing::FindPhysicalCoordinates(INT moveNum)
 
 VOID Drawing::FitSize(PRECT windowRect, INT moveNum)
 {
-	INT minWidthforMAX_SIZE = (MAX_FIELD_WIDTH)*MAX_CELL_SIZE;
+	INT minWidthforMAX_SIZE = (MAX_FIELD_WIDTH)*MAX_CELL_SIZE+(SCORES_WIDTH+SCORES_MARGIN*2)*2;
 	INT minHeightforMAX_SIZE = (MAX_FIELD_HEIGHT + 2)*MAX_CELL_SIZE;
-	INT minWidthforMEDIUM_SIZE = (MEDIUM_FIELD_WIDTH + 1)*MEDIUM_CELL_SIZE;
+	INT minWidthforMEDIUM_SIZE = (MEDIUM_FIELD_WIDTH + 1)*MEDIUM_CELL_SIZE+ (SCORES_WIDTH+SCORES_MARGIN*2)*2;
 	INT minHeightforMEDIUM_SIZE = (MEDIUM_FIELD_HEIGHT + 3)*MEDIUM_CELL_SIZE;
-	INT minWidthforMIN_SIZE = (MIN_FIELD_WIDTH + 1)*MIN_CELL_SIZE;
+	INT minWidthforMIN_SIZE = (MIN_FIELD_WIDTH + 1)*MIN_CELL_SIZE+ (SCORES_WIDTH+SCORES_MARGIN*2)*2;
 	INT minHeightforMIN_SIZE = (MIN_FIELD_HEIGHT + 4)*MIN_CELL_SIZE;
 	INT windowWidth = windowRect->right - windowRect->left;
 	INT windowHeight = windowRect->bottom - windowRect->top;
@@ -279,16 +282,23 @@ POINT Drawing::GetClosestDotPos(int x, int y)
 {
 	if (IsOnField(x, y))
 	{
-		POINT dot = *(logicalToPhysical)[0][0];
-		while (abs(dot.x - x) >= cellSize / 2 + 1)
+		POINT ltDot = *(logicalToPhysical)[0][0];
+		POINT* dot = new POINT();//;
+		dot->x = (x - ltDot.x) / cellSize *cellSize+ltDot.x;
+		if ((x - ltDot.x) % cellSize > cellSize / 2)
+			dot->x+=cellSize;
+		dot->y = (y - ltDot.y) / cellSize *cellSize+ltDot.y;
+		if ((y - ltDot.y) % cellSize > cellSize / 2)
+			dot->y+=cellSize;
+		/*while (abs(dot.x - x) >= cellSize / 2 + 1)
 		{
 			dot.x += cellSize;
 		}
 		while (abs(dot.y - y) >= cellSize / 2 + 1)
 		{
 			dot.y += cellSize;
-		}
-		return dot;
+		}*/
+		return *dot;
 	}
 	else
 		return dotOver;
@@ -463,6 +473,9 @@ BOOL Drawing::LoadImages(HINSTANCE hInst)
 	wcscpy_s(pwcLastSlash, 20, L"\\images\\desktop.bmp");*/
 	hBmpBackground = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP1));
 	hBmpTop10 = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP3));
+	hBmpRules1 = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP5));
+	hBmpRules2 = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP6));
+	hBmpRules3 = LoadBitmapW(hInst, MAKEINTRESOURCEW(IDB_BITMAP7));
 	//hBmpBackground = (HBITMAP)LoadImageW(NULL, wsImagePath, IMAGE_BITMAP, windowWidth, windowHeight, LR_LOADFROMFILE | LR_LOADTRANSPARENT);
 	//GetObjectW(hBmpBackground, sizeof(bmpBackground), &bmpBackground);
 	/*hdc = GetDC(hWnd);
@@ -583,6 +596,26 @@ VOID Drawing::ShowRecords(vector<PWCHAR> recordsLines)
 		SelectObject(hdc, originalFont);
 	DeleteObject((HGDIOBJ)(HFONT)(hFont));
 	logFont.lfHeight /= 2;
+}
+
+VOID Drawing::ShowRulesImages(HWND hWnd)
+{
+	INT picturesIDs[3]{ IDC_STATIC1, IDC_STATIC2, IDC_STATIC3 };
+	HBITMAP picturesHBmps[3]{ hBmpRules1, hBmpRules2, hBmpRules3 };
+	for (INT i = 0; i < 3; i++)
+	{
+		HWND hWndPicture = GetDlgItem(hWnd, picturesIDs[i]);
+		HDC hdc = GetDC(hWndPicture);
+		HDC memDC = CreateCompatibleDC(hdc);
+		originalBmp = (HBITMAP)SelectObject(memDC, picturesHBmps[i]);
+		RECT pictureRect;
+		GetClientRect(hWndPicture, &pictureRect);
+		BitBlt(hdc, 0, 0, pictureRect.right - pictureRect.left, pictureRect.bottom - pictureRect.top, memDC, 0, 0, SRCCOPY);
+		if (originalBmp != NULL)
+			SelectObject(memDC, originalBmp);
+		DeleteDC(memDC);
+		ReleaseDC(GetDlgItem(hWnd, IDC_STATIC1), hdc);
+	}
 }
 
 VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
