@@ -13,6 +13,7 @@
 #include "GameLogic.h"
 #include "SavingResults.h"
 #include "RecordsWindow.h"
+#include "WelcomeWindow.h"
 
 #define MAX_LOADSTRING 100
 #define BTN_SHOWRECORDS_TITLE L""
@@ -146,7 +147,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 VOID AddRulesBtn(HWND hWnd)
 {
 	hWndBtnRules = CreateWindowW(L"BUTTON",
-		BTN_SHOWRECORDS_TITLE,
+		L"",
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER | BS_MULTILINE | BS_BITMAP,
 		WINDOW_DEFAULT_WIDTH-BTN_MARGIN-BTN_RULES_WIDTH,WINDOW_DEFAULT_HEIGHT- BTN_MARGIN - BTN_RULES_HEIGHT, BTN_RULES_WIDTH, BTN_RULES_HEIGHT,
 		hWnd, (HMENU)ID_BTN_RULES, (HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE), NULL);
@@ -165,17 +166,22 @@ VOID AddShowRecordsBtn(HWND hWnd)
 	SendMessageW(hWndBtnShowRecords, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBmpRecords);
 }
 
-VOID OnChildClosed(HWND hWnd)
+VOID OnChildClosed(HWND hWnd, WPARAM wParam)
 {
-	RECT* windowRect = new RECT();
-	GetWindowRect(hWnd, windowRect);
-	//Drawing::FitSize(windowRect, GameLogic::moveNum);
-	Drawing::windowWidth = windowRect->right-windowRect->left-DEFAULT_WIDTH_DIFFERENCE;
-	Drawing::windowHeight = windowRect->bottom-windowRect->top-DEFAULT_HEIGHT_DIRRERENCE;
-	Drawing::FindPhysicalCoordinates(GameLogic::moveNum);
-	InvalidateRect(hWnd, NULL, TRUE);
-	UpdateWindow(hWnd);
-	delete windowRect;
+	if (wParam > 0)
+	{
+		SavingResults::playersNames = WelcomeWindow::nicknames;
+		GameLogic::playersAmount = wParam;
+	}
+		RECT* windowRect = new RECT();
+		GetWindowRect(hWnd, windowRect);
+		//Drawing::FitSize(windowRect, GameLogic::moveNum);
+		Drawing::windowWidth = windowRect->right - windowRect->left - DEFAULT_WIDTH_DIFFERENCE;
+		Drawing::windowHeight = windowRect->bottom - windowRect->top - DEFAULT_HEIGHT_DIRRERENCE;
+		Drawing::FindPhysicalCoordinates(GameLogic::moveNum);
+		InvalidateRect(hWnd, NULL, TRUE);
+		UpdateWindow(hWnd);
+		delete windowRect;
 }
 
 INT OnCreate(HWND hWnd)
@@ -187,14 +193,12 @@ INT OnCreate(HWND hWnd)
 	Drawing::CreatePhysicalCoordinatesMatrix();
 	Drawing::InitializeLogFont();
 	Drawing::LoadImages(hInst);
-	vector<PWCHAR> playersNames;
-	playersNames.push_back(DEFAULT_NAME1);
-	playersNames.push_back(DEFAULT_NAME2);
-	playersNames.push_back(DEFAULT_NAME3);
-	playersNames.push_back(DEFAULT_NAME4);
-	playersNames.push_back(DEFAULT_NAME5);
-	SavingResults::playersNames = playersNames;
-
+	WelcomeWindow::RegisteWelcomeWindowClass(hInst);
+	if (!WelcomeWindow::CreateWelcomeWindow(hWnd, hInst))
+	{
+		return -1;
+	}
+	WelcomeWindow::ShowWelcomeWindow();
 	RecordsWindow::RegisteRecordsWindowClass(hInst);
 	if (!RecordsWindow::CreateRecordsWindow(hWnd, hInst))
 	{
@@ -270,13 +274,12 @@ INT OnPaint(HWND hWnd)
 
 VOID OnSaveAsGame()
 {
-	//расположение (ряд и колонка) каждой вершины по номеру
-	//замкнутые области (как список номеров вершин) в порядке добавления 
+	
 }
 
 VOID OnSaveGame()
 {
-	SavingResults::GetSaveGameDirectoryPath(wsProgramPath);
+	SavingResults::SaveGameInFile(GameLogic::playersAmount, gameLogic->closedAreas, gameLogic->vertexes);
 }
 
 INT OnSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
@@ -379,7 +382,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SIZE:
 		return OnSize(hWnd, wParam, lParam);
 	case WM_CHILDACTIVATE:
-		OnChildClosed(hWnd);
+		OnChildClosed(hWnd,wParam);
 		break;
 	case WM_MOUSEMOVE:
 		return OnMouseMove(hWnd, lParam);

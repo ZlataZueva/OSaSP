@@ -90,7 +90,7 @@ VOID Drawing::CreatePhysicalCoordinatesMatrix()
 //	}
 //}
 
-VOID Drawing::DrawClosedAreas(vector<vector<UINT>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, UINT playersAmount)
+VOID Drawing::DrawClosedAreas(vector<vector<WORD>> *closedAreas,vector<POINT> *pointsLogicalCoordinates, BYTE playersAmount)
 {
 	//HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
@@ -124,7 +124,7 @@ VOID Drawing::DrawClosedAreas(vector<vector<UINT>> *closedAreas,vector<POINT> *p
 	//ReleaseDC(hWnd, hdc);
 }
 
-VOID Drawing::DrawDots(UINT playersAmount)
+VOID Drawing::DrawDots(BYTE playersAmount)
 {
 	//HDC hdc = GetDC(hWnd);
 	HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(DC_PEN));
@@ -554,6 +554,48 @@ VOID Drawing::SetPlayerColors(HDC hdc, UINT player)
 		}
 	}
 	break;
+	case FORTH_PLAYER:
+	{
+		switch (colorMode)
+		{
+		case STANDARD_COLORS:
+		{
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
+		}
+		break;
+		case NOTEBOOK_COLORS:
+		{
+			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FORTH_DOT_PEN);
+			SelectObject(hdc, playersPen);
+			SetDCBrushColor(hdc, NOTEBOOK_FORTH_DOT_BRUSH);
+			SetTextColor(hdc, NOTEBOOK_FORTH_DOT_BRUSH);
+		}
+		break;
+		}
+	}
+	break;
+	case FIFTH_PLAYER:
+	{
+		switch (colorMode)
+		{
+		case STANDARD_COLORS:
+		{
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_PEN));
+			SelectObject(hdc, GetStockObject(STANDARD_SECOND_DOT_BRUSH));
+		}
+		break;
+		case NOTEBOOK_COLORS:
+		{
+			playersPen = CreatePen(PS_SOLID, penWidth, NOTEBOOK_FIFTH_DOT_PEN);
+			SelectObject(hdc, playersPen);
+			SetDCBrushColor(hdc, NOTEBOOK_FIFTH_DOT_BRUSH);
+			SetTextColor(hdc, NOTEBOOK_FIFTH_DOT_BRUSH);
+		}
+		break;
+		}
+	}
+	break;
 	}
 	//ReleaseDC(hWnd, hdc);
 }
@@ -624,7 +666,7 @@ VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
 	SetBkMode(hdc,TRANSPARENT);
 	HFONT hFont = CreateFontIndirectW(&logFont);
 	HGDIOBJ originalFont = SelectObject(hdc, hFont);
-	for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + scores->size(); player++)
+	for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + playersNames.size(); player++)
 	{
 		HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
 		HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));

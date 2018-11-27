@@ -19,8 +19,6 @@ BOOL RecordsWindow::CreateRecordsWindow(HWND hWndParent, HINSTANCE hInstance)
 	hWnd = CreateWindowW(RECORDS_WINDOW_CLASS, RECORDS_WINDOW_NAME, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | DS_CENTER,
 		CW_USEDEFAULT, 0, RECORDS_WINDOW_DEFAULT_WIDTH, RECORDS_WINDOW_DEFAULT_HEIGHT, hWndParent, NULL, hInstance, NULL);
 
-	//AddShowRecordsBtn(hWnd);
-
 	if (!hWnd)
 	{
 		return FALSE;
@@ -49,7 +47,7 @@ ATOM RecordsWindow::RegisteRecordsWindowClass(HINSTANCE hInstance)
 	return RegisterClassExW(&wcex);
 }
 
-VOID OnPaint(HWND hWnd)
+VOID RecordsWindow::OnPaint(HWND hWnd)
 {
 	Drawing::hdc = BeginPaint(hWnd, &Drawing::ps);
 	Drawing::ShowBackground(Drawing::hBmpBackground);
@@ -59,7 +57,7 @@ VOID OnPaint(HWND hWnd)
 	EndPaint(hWnd, &(Drawing::ps));
 }
 
-VOID OnSize(HWND hWnd, LPARAM lParam)
+VOID RecordsWindow::OnSize(HWND hWnd, LPARAM lParam)
 {
 	Drawing::windowWidth = LOWORD(lParam);
 	Drawing::windowHeight = HIWORD(lParam);
@@ -69,11 +67,10 @@ VOID OnSize(HWND hWnd, LPARAM lParam)
 
 VOID RecordsWindow::ShowRecordsWindow()
 {
-	RECT* windowRect = new RECT();
-	GetWindowRect(hWnd, windowRect);
-	Drawing::windowWidth = windowRect->right - windowRect->left;
-	Drawing::windowHeight = windowRect->bottom - windowRect->top;
-	delete windowRect;
+	RECT windowRect;
+	GetWindowRect(hWnd, &windowRect);
+	Drawing::windowWidth = windowRect.right - windowRect.left;
+	Drawing::windowHeight = windowRect.bottom - windowRect.top;
 	ShowWindow(hWnd, SW_SHOW);
 	UpdateWindow(hWnd);
 }

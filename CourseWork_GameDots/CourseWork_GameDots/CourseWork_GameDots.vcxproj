@@ -153,6 +153,7 @@
     <ClInclude Include="SavingResults.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="WelcomeWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CourseWork_GameDots.cpp" />
@@ -166,13 +167,16 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="WelcomeWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CourseWork_GameDots.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\images\bitmap7.bmp" />
+    <Image Include="..\images\button_play.bmp" />
     <Image Include="..\images\desktop.bmp" />
+    <Image Include="..\images\plus.bmp" />
     <Image Include="..\images\records.bmp" />
     <Image Include="..\images\rules.bmp" />
     <Image Include="..\images\rules1.bmp" />
