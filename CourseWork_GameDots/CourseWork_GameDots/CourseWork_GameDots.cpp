@@ -241,10 +241,11 @@ INT OnMouseMove(HWND hWnd, LPARAM lParam)
 
 VOID OnNewGame(HWND hWnd)
 {
+	WelcomeWindow::ShowWelcomeWindow();
 	gameLogic->StartNewGame();
 	Drawing::InitializeDotsMatrix();
-	InvalidateRgn(hWnd, NULL, TRUE);
-	UpdateWindow(hWnd);
+	//InvalidateRgn(hWnd, NULL, TRUE);
+	//UpdateWindow(hWnd);
 }
 
 INT OnPaint(HWND hWnd)

@@ -55,6 +55,10 @@ VOID OnCreate(HWND hWnd)
 
 	AddEdit(hWnd);
 	AddEdit(hWnd);
+	for (INT i = 0; i < 5; i++)
+	{
+		WelcomeWindow::nicknames[i] = new WCHAR[MAX_NICKNAME];
+	}
 }
 
 VOID AddEdit(HWND hWnd)
@@ -136,12 +140,12 @@ LRESULT CALLBACK WelcomeWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 		{
 			for (INT i = 0; i < playersCount; i++)
 			{
-				nicknames[i] = new WCHAR[MAX_NICKNAME];
-				INT textLength = GetWindowTextLengthW(hWndEdits[i]);
 				GetWindowTextW(hWndEdits[i], nicknames[i], MAX_NICKNAME);
 			}
-			while (nicknames.size() > playersCount)
-				nicknames.pop_back();
+			for (INT i = playersCount; i < 5; i++)
+			{
+				wcscpy_s(nicknames[i], MAX_NICKNAME, L"");
+			}
 			SendMessage(hWndParent, WM_CHILDACTIVATE, playersCount, playersCount);
 			ShowWindow(hWnd, SW_HIDE);
 		}

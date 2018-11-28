@@ -11,8 +11,8 @@ BYTE GameLogic::playersAmount = 2;
 
 GameLogic::GameLogic()
 {
-	capturedDotsAmounts = new vector<INT>(playersAmount);
-	for (INT i = 0; i < playersAmount; i++)
+	capturedDotsAmounts = new vector<INT>(MAX_PLAYERS_AMOUNT);
+	for (INT i = 0; i < MAX_PLAYERS_AMOUNT; i++)
 	{
 		(*capturedDotsAmounts)[i] = 0;
 	}
@@ -236,7 +236,7 @@ VOID GameLogic::StartNewGame()
 	vertexes.clear();
 	closedAreas.clear();
 	//capturedDotsAmounts->clear();
-	for (INT i = 0; i < playersAmount; i++)
+	for (INT i = 0; i < MAX_PLAYERS_AMOUNT; i++)
 	{
 		(*capturedDotsAmounts)[i] = 0;
 	}

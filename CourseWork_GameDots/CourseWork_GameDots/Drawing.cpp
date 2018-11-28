@@ -666,33 +666,39 @@ VOID Drawing::ShowScores(vector<PWCHAR> playersNames, vector<INT> *scores)
 	SetBkMode(hdc,TRANSPARENT);
 	HFONT hFont = CreateFontIndirectW(&logFont);
 	HGDIOBJ originalFont = SelectObject(hdc, hFont);
-	for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + playersNames.size(); player++)
+	if (playersNames.size() != 0)
 	{
-		HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
-		HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
-		RECT textRect;
-		SetRect(&textRect, SCORES_MARGIN, SCORES_MARGIN+player*SCORES_HEIGHT, SCORES_MARGIN + SCORES_WIDTH, SCORES_MARGIN + SCORES_HEIGHT*(player+1));
-		SetPlayerColors(hdc, player);
-		PWCHAR text = new WCHAR[MAX_NICKNAME + 6];
-		/*PWCHAR strPlayerNum = new WCHAR[2];
-		_itow_s(player+1, strPlayerNum, 2, 10);
-		wcscpy_s(text, MAX_NICKNAME+6, L"Player");
-		wcscat_s(text, MAX_NICKNAME+6, strPlayerNum);*/
-		wcscpy_s(text, MAX_NICKNAME + 6, playersNames[player]);
-		wcscat_s(text, MAX_NICKNAME+6, L": ");
-		PWCHAR strPlayerScore = new WCHAR[4];
-		_itow_s((*scores)[player], strPlayerScore, 4, 10);
-		wcscat_s(text, MAX_NICKNAME+6, strPlayerScore);
-		DrawTextW(hdc, text, -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
-		//delete[] strPlayerNum;
-		delete[] text;
-		delete[] strPlayerScore;
-		if (originalPen != NULL)
-			SelectObject(hdc, originalPen);
-		if (originalBrush != NULL)
-			SelectObject(hdc, originalBrush);
-		DeleteObject((HGDIOBJ)(HPEN)(playersPen));
-		//logFont.lfWeight = FW_MEDIUM;
+		for (INT player = FIRST_PLAYER; player < FIRST_PLAYER + scores->size(); player++)
+		{
+			if (wcscmp(playersNames[player], L"") != 0)
+			{
+				HGDIOBJ originalPen = SelectObject(hdc, GetStockObject(NULL_PEN));
+				HGDIOBJ originalBrush = SelectObject(hdc, GetStockObject(DC_BRUSH));
+				RECT textRect;
+				SetRect(&textRect, SCORES_MARGIN, SCORES_MARGIN + player*SCORES_HEIGHT, SCORES_MARGIN + SCORES_WIDTH, SCORES_MARGIN + SCORES_HEIGHT*(player + 1));
+				SetPlayerColors(hdc, player);
+				PWCHAR text = new WCHAR[MAX_NICKNAME + 6];
+				/*PWCHAR strPlayerNum = new WCHAR[2];
+				_itow_s(player+1, strPlayerNum, 2, 10);
+				wcscpy_s(text, MAX_NICKNAME+6, L"Player");
+				wcscat_s(text, MAX_NICKNAME+6, strPlayerNum);*/
+				wcscpy_s(text, MAX_NICKNAME + 6, playersNames[player]);
+				wcscat_s(text, MAX_NICKNAME + 6, L": ");
+				PWCHAR strPlayerScore = new WCHAR[4];
+				_itow_s((*scores)[player], strPlayerScore, 4, 10);
+				wcscat_s(text, MAX_NICKNAME + 6, strPlayerScore);
+				DrawTextW(hdc, text, -1, &textRect, DT_WORDBREAK | DT_VCENTER | DT_CENTER);
+				//delete[] strPlayerNum;
+				delete[] text;
+				delete[] strPlayerScore;
+				if (originalPen != NULL)
+					SelectObject(hdc, originalPen);
+				if (originalBrush != NULL)
+					SelectObject(hdc, originalBrush);
+				DeleteObject((HGDIOBJ)(HPEN)(playersPen));
+			}
+			//logFont.lfWeight = FW_MEDIUM;
+		}
 	}
 	if (originalFont != NULL)
 		SelectObject(hdc, originalFont);
